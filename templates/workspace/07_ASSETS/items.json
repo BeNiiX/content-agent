@@ -1,0 +1,25 @@
+{
+  "_doc": "Banque de {{ITEM_PLURAL}} de {{APP_NAME}}, issue des enregistrements d'écran (screen-records) ou d'un export de la base. Schéma : 07_ASSETS/README.md. RÈGLE À DÉFINIR ICI : ce que signifie `pct` (chiffre brut de l'écran résultat) et comment on calcule `pct_agree` (le chiffre affiché partout). from/to = temps (s) dans l'enregistrement `rec`. excluded = raison d'exclusion, skipped = pas de résultat. icp = compte cible, jamais mélangé.",
+  "pct_semantics": {
+    "pct": "à définir : ex. « % de joueurs qui ont fait le même choix que le joueur de l'enregistrement »",
+    "pct_agree": "à définir : ex. « % de joueurs d'accord avec l'énoncé = pct si vote positif, 100 − pct sinon »"
+  },
+  "recordings": {},
+  "items": [
+    {
+      "id": "s1-01",
+      "rec": "S1",
+      "theme": "exemple",
+      "player": null,
+      "text": "Exemple : texte de l'unité de contenu tel qu'affiché dans l'app (à remplacer).",
+      "verdict": null,
+      "pct": null,
+      "pct_agree": null,
+      "vote": null,
+      "from": 0.0,
+      "to": 0.0,
+      "icp": "tous",
+      "excluded": "exemple de schéma, ne pas utiliser"
+    }
+  ]
+}

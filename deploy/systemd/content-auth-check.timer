@@ -1,0 +1,11 @@
+[Unit]
+Description=Content - verification quotidienne de la session Claude (09:00 Europe/Paris)
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 Europe/Paris
+Persistent=true
+AccuracySec=5min
+Unit=content-auth-check.service
+
+[Install]
+WantedBy=timers.target

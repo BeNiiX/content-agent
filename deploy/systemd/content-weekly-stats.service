@@ -1,0 +1,22 @@
+# Relevé hebdo des comptes TikTok (infra/scripts/weekly-stats.sh) : pull.js (yt-dlp + pages publiques) → report.js (STATS.md, digest, fiches EXP).
+# Déclenché par content-weekly-stats.timer (lundi 08:00 Europe/Paris). WEEKLY_CLAUDE=1 dans .env pour enchaîner la revue Claude headless.
+[Unit]
+Description=Content - releve hebdo des comptes
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=content
+Group=content
+WorkingDirectory=/home/content/app/infra
+EnvironmentFile=-/home/content/app/infra/.env
+Environment=HOME=/home/content
+Environment=PATH=/home/content/.local/bin:/home/content/app/infra/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=Europe/Paris
+Environment=LANG=C.UTF-8
+ExecStartPre=-/home/content/app/deploy/git-sync.sh --no-push
+ExecStart=/usr/bin/flock -w 1800 /home/content/app/infra/data/content.lock /usr/bin/bash scripts/weekly-stats.sh
+ExecStopPost=-/home/content/app/deploy/git-sync.sh
+TimeoutStartSec=2h
+Nice=10

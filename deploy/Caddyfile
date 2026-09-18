@@ -1,0 +1,76 @@
+# Caddy — tableau de bord + serveur de médias du VPS content.
+# Installé par deploy/install.sh dans /etc/caddy/Caddyfile ; variables dans /etc/caddy/env (voir deploy/caddy.env.example) :
+#   DOMAIN        nom pointé sur le VPS (A/AAAA) → certificat Let's Encrypt automatique. Vide = "localhost" (certificat interne, pour tester).
+#   DASH_USER     identifiant de l'authentification basique
+#   DASH_HASH     empreinte bcrypt du mot de passe : caddy hash-password --plaintext 'le-mot-de-passe'
+#   MEDIA_PUBLIC  "true" pour exposer les médias SANS authentification sous /public-media/<MEDIA_TOKEN>/… (défaut : désactivé)
+#   MEDIA_TOKEN   jeton long et aléatoire (openssl rand -hex 24) qui fait partie de l'URL publique
+# Vérifier : caddy validate --config /etc/caddy/Caddyfile --envfile /etc/caddy/env ; recharger : sudo systemctl reload caddy
+#
+# Routes :
+#   /media/07_ASSETS/…   fichiers de <APP_DIR>/07_ASSETS   (lecture seule, auth basique)   ─┐ mêmes chemins que ceux
+#   /media/08_ACCOUNTS/… fichiers de <APP_DIR>/08_ACCOUNTS (lecture seule, auth basique)   ─┘ que sert le tableau de bord
+#   /media/…             tout le reste (02_VEILLE/assets, 01_BRAND/DA) → tableau de bord (qui restreint lui-même)
+#   /                    tableau de bord 127.0.0.1:4747 (auth basique)
+#   /public-media/<MEDIA_TOKEN>/07_ASSETS|08_ACCOUNTS/…  sans auth, seulement si MEDIA_PUBLIC=true (pour Higgsfield media_import_url, qui a besoin d'une URL sans auth)
+
+{$DOMAIN:localhost} {
+	encode zstd gzip
+
+	# --- Médias publics par jeton (désactivés par défaut) ---------------------------------------------------------
+	# L'expression CEL est fausse tant que MEDIA_PUBLIC != "true" : la route n'existe donc pas.
+	@public_media `{env.MEDIA_PUBLIC} == "true" && path("/public-media/{$MEDIA_TOKEN:disabled}/*")`
+	handle @public_media {
+		uri strip_prefix /public-media/{$MEDIA_TOKEN:disabled}
+		@pub_assets path /07_ASSETS/* /08_ACCOUNTS/*
+		handle @pub_assets {
+			root * /home/content/app
+			@pub_hidden path */.* */work/*
+			respond @pub_hidden 404
+			header Cache-Control "private, max-age=300"
+			file_server
+		}
+		respond 404
+	}
+
+	# --- Authentification basique sur tout le reste ---------------------------------------------------------------
+	# (basic_auth s'exécute avant les blocs handle dans l'ordre des directives Caddy : le matcher exclut la route publique)
+	@needs_auth `!({env.MEDIA_PUBLIC} == "true" && path("/public-media/{$MEDIA_TOKEN:disabled}/*"))`
+	basic_auth @needs_auth {
+		{$DASH_USER:admin} {$DASH_HASH}
+	}
+
+	# --- Médias servis directement depuis le disque (Range accepté : lecture vidéo dans Safari / TikTok Studio) ------
+	handle_path /media/07_ASSETS/* {
+		root * /home/content/app/07_ASSETS
+		@hidden path */.* /legacy/* /photos/_backup-fichiers-origine/*
+		respond @hidden 404
+		header Cache-Control "private, max-age=300"
+		file_server browse
+	}
+	handle_path /media/08_ACCOUNTS/* {
+		root * /home/content/app/08_ACCOUNTS
+		@hidden2 path */.* */work/*
+		respond @hidden2 404
+		header Cache-Control "private, max-age=300"
+		file_server browse
+	}
+
+	# --- Tableau de bord (et /media/02_VEILLE, /media/01_BRAND via son propre serveur) -------------------------------
+	handle {
+		reverse_proxy 127.0.0.1:4747 {
+			# dépôt de fichiers par glisser-déposer (PUT /api/upload) : vidéos jusqu'à 1 Go
+			transport http {
+				read_timeout 10m
+				write_timeout 10m
+			}
+		}
+	}
+
+	log {
+		output file /var/log/caddy/content.log {
+			roll_size 10MiB
+			roll_keep 5
+		}
+	}
+}

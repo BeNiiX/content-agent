@@ -1,0 +1,25 @@
+{
+  "name": "content-agent-infra",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Veille TikTok/Instagram, scoring, génération de docs MD, production, ads et publication pour l'agent content (instance : config/project.json)",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "import:tiktok": "node src/tiktok/import-export.js",
+    "import:instagram": "node src/instagram/import-export.js",
+    "enrich": "node src/enrich.js",
+    "enrich:authors": "node src/enrich-authors.js",
+    "score": "node src/score.js",
+    "docs": "node src/build-docs.js",
+    "download": "node src/download.js",
+    "sync": "bash scripts/sync.sh",
+    "ads:report": "node src/ads/tiktok-report.js",
+    "draft": "node src/publish/tiktok-draft.js",
+    "draft:put": "node src/publish/higgsfield-put.js",
+    "draft:mark": "node src/publish/mark-draft.js",
+    "doctor": "node src/doctor.js",
+    "dashboard": "node src/dashboard/server.js",
+    "launchd:plists": "node scripts/launchd/make-plists.js"
+  }
+}

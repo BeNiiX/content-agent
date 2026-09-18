@@ -1,0 +1,12 @@
+[Unit]
+Description=Content - rendu des specs en attente (toutes les heures)
+
+[Timer]
+# minute 5 pour ne pas tomber systématiquement sur le git-sync de l'heure pile (le verrou gère de toute façon la concurrence)
+OnCalendar=*-*-* *:05:00
+Persistent=false
+AccuracySec=1min
+Unit=content-render-pending.service
+
+[Install]
+WantedBy=timers.target

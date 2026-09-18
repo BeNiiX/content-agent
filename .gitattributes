@@ -1,0 +1,12 @@
+# Fins de ligne et binaires
+* text=auto eol=lf
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.webp binary
+*.ttf binary
+*.mp4 binary
+*.mov binary
+# Les fichiers générés par les scripts ne sont pas des sources à diff-er finement
+08_ACCOUNTS/*/STATS.md linguist-generated=true
+06_CALENDAR/stats/*.md linguist-generated=true

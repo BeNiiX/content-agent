@@ -1,0 +1,23 @@
+# Tableau de bord (infra/src/dashboard/server.js) sur 127.0.0.1:4747, exposé par Caddy avec authentification basique (deploy/Caddyfile).
+# Logs : journalctl -u content-dashboard -f
+[Unit]
+Description=Content - tableau de bord (127.0.0.1:4747)
+After=network.target
+
+[Service]
+Type=simple
+User=content
+Group=content
+WorkingDirectory=/home/content/app/infra
+EnvironmentFile=-/home/content/app/infra/.env
+Environment=HOME=/home/content
+Environment=PATH=/home/content/.local/bin:/home/content/app/infra/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=Europe/Paris
+Environment=LANG=C.UTF-8
+Environment=DASHBOARD_PORT=4747
+ExecStart=/usr/bin/node src/dashboard/server.js --no-open --port 4747
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

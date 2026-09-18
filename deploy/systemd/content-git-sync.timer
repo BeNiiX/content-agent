@@ -1,0 +1,11 @@
+[Unit]
+Description=Content - synchro git toutes les 10 minutes
+
+[Timer]
+OnCalendar=*-*-* *:00/10:00
+Persistent=false
+AccuracySec=30s
+Unit=content-git-sync.service
+
+[Install]
+WantedBy=timers.target

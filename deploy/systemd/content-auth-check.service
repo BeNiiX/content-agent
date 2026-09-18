@@ -1,0 +1,19 @@
+# Vérifie chaque matin que la session Claude Code du VPS est encore valide (claude auth status) : sinon, notification
+# (NOTIFY_CHANNEL de .env) pour refaire `claude auth login` avant l'envoi du soir. Déclenché par content-auth-check.timer.
+[Unit]
+Description=Content - verification de la session Claude Code
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=content
+Group=content
+WorkingDirectory=/home/content/app/infra
+EnvironmentFile=-/home/content/app/infra/.env
+Environment=HOME=/home/content
+Environment=PATH=/home/content/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=Europe/Paris
+Environment=LANG=C.UTF-8
+ExecStart=/home/content/app/deploy/auth-check.sh
+TimeoutStartSec=5min

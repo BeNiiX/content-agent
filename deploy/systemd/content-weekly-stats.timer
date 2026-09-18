@@ -1,0 +1,12 @@
+[Unit]
+Description=Content - releve hebdo lundi 08:00 Europe/Paris
+
+[Timer]
+OnCalendar=Mon *-*-* 08:00:00 Europe/Paris
+# Rattrapage si le VPS était éteint lundi matin : un relevé en retard vaut mieux qu'aucun relevé.
+Persistent=true
+AccuracySec=1min
+Unit=content-weekly-stats.service
+
+[Install]
+WantedBy=timers.target

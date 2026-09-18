@@ -1,0 +1,23 @@
+# Rendu des specs en attente (infra/src/produce/render-pending.js) : specs poussées par les agents cloud ou le Mac → carrousels / vidéos.
+# Déclenché par content-render-pending.timer (toutes les heures). Manuel : sudo systemctl start content-render-pending ; à blanc : node src/produce/render-pending.js --dry-run
+[Unit]
+Description=Content - rendu des specs en attente
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=content
+Group=content
+WorkingDirectory=/home/content/app/infra
+EnvironmentFile=-/home/content/app/infra/.env
+Environment=HOME=/home/content
+Environment=PATH=/home/content/.local/bin:/home/content/app/infra/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=Europe/Paris
+Environment=LANG=C.UTF-8
+ExecStartPre=-/home/content/app/deploy/git-sync.sh --no-push
+ExecStart=/usr/bin/flock -w 600 /home/content/app/infra/data/content.lock /usr/bin/node src/produce/render-pending.js --limit 20
+# les JPEG rendus (carrousels) et les fiches EXP passées en « prêt » partent dans git ; les MP4 restent sur le VPS (rapatriement : deploy/sync-media.sh --from-vps)
+ExecStopPost=-/home/content/app/deploy/git-sync.sh
+TimeoutStartSec=3h
+Nice=15
+IOSchedulingClass=idle

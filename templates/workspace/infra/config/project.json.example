@@ -1,0 +1,32 @@
+{
+  "_doc": "Configuration d'instance de l'agent content (schéma : infra/config/README.md). Tout ce qui est propre à l'app vit ici, jamais dans le code. Lu par infra/src/lib/project.js (Node) et infra/scripts/project_config.py (Python). Valeurs par langue : { fr: …, en: … } ou une chaîne unique (même valeur dans toutes les langues).",
+  "name": "{{APP_NAME}}",
+  "slug": "{{APP_SLUG}}",
+  "app_store_url": null,
+  "play_store_url": null,
+  "languages": ["fr", "en"],
+  "default_language": "fr",
+  "markets": ["FR"],
+  "timezone": "Europe/Paris",
+  "daily_hour": 18,
+  "weekly_stats": { "weekday": 1, "hour": 8 },
+  "vocabulary": {
+    "item": { "fr": "{{ITEM}}", "en": "{{ITEM}}" },
+    "item_plural": { "fr": "{{ITEM_PLURAL}}", "en": "{{ITEM_PLURAL}}" },
+    "verdict_label": { "fr": "des joueurs pensent comme toi", "en": "of players think like you" },
+    "agree": { "fr": "oui", "en": "yes" },
+    "disagree": { "fr": "non", "en": "no" },
+    "score_label": { "fr": "pensent pareil.", "en": "think the same." },
+    "question": { "fr": "Oui ou non ?", "en": "Yes or no?" },
+    "kicker": { "fr": "", "en": "" }
+  },
+  "cta": {
+    "fr": "C'est l'app {{APP_NAME}} sur l'App Store",
+    "en": "It's the {{APP_NAME}} app on the App Store"
+  },
+  "hashtags_core": {
+    "fr": [],
+    "en": []
+  },
+  "notify_title": "{{APP_NAME}}"
+}

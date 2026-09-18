@@ -1,0 +1,26 @@
+# Envoi du soir : 1 brouillon TikTok par compte connecté + message de consignes (infra/scripts/daily-drafts.sh).
+# Déclenché par content-daily-drafts.timer (18:00 Europe/Paris). Test : sudo systemctl start content-daily-drafts ; logs : journalctl -u content-daily-drafts
+[Unit]
+Description=Content - envoi du soir (brouillons TikTok + message)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=content
+Group=content
+WorkingDirectory=/home/content/app/infra
+# .env est aussi relu par les scripts eux-mêmes ; ici il sert aux variables de session (DAILY_MODEL, NOTIFY_*). Le tiret = pas d'erreur si absent.
+EnvironmentFile=-/home/content/app/infra/.env
+Environment=HOME=/home/content
+Environment=PATH=/home/content/.local/bin:/home/content/app/infra/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=Europe/Paris
+Environment=LANG=C.UTF-8
+# 1. tirer les derniers fichiers (specs, QUEUE, fiches poussés par le Mac ou les routines cloud) ; un conflit git ne bloque pas l'envoi
+ExecStartPre=-/home/content/app/deploy/git-sync.sh --no-push
+# 2. l'envoi lui-même, sous verrou partagé avec le rendu et git-sync
+ExecStart=/usr/bin/flock -w 1800 /home/content/app/infra/data/content.lock /usr/bin/bash scripts/daily-drafts.sh
+# 3. pousser l'état (fiches EXP « brouillon envoyé », QUEUE) même si l'envoi a échoué
+ExecStopPost=-/home/content/app/deploy/git-sync.sh
+TimeoutStartSec=2h
+Nice=5

@@ -1,0 +1,19 @@
+# Synchro git (deploy/git-sync.sh) : commit des fichiers d'état produits par les jobs, pull --rebase, push. Jamais de --force.
+# Déclenché par content-git-sync.timer (toutes les 10 min). Un conflit → rebase annulé + notification (daily-notify.js --test).
+[Unit]
+Description=Content - synchro git (pull --rebase, commit d'etat, push)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=content
+Group=content
+WorkingDirectory=/home/content/app
+EnvironmentFile=-/home/content/app/infra/.env
+Environment=HOME=/home/content
+Environment=PATH=/home/content/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=Europe/Paris
+Environment=LANG=C.UTF-8
+ExecStart=/home/content/app/deploy/git-sync.sh
+TimeoutStartSec=10min

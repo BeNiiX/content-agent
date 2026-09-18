@@ -1,0 +1,47 @@
+# ============================================================
+# Ce qui NE va PAS dans git (voir README « Ce qui est versionné »)
+#   - vidéos et rushs : trop lourds, synchronisés vers le VPS par deploy/sync-media.sh
+#   - données brutes de l'infra, caches, environnements, modèles
+#   - secrets (.env, identifiants des comptes)
+# Les textes, specs, fiches, docs et les photos JPEG (< ~200 Mo) sont versionnés.
+# ============================================================
+
+# Médias lourds (rushs, exports vidéo, sorties vidéo)
+07_ASSETS/**/*.mov
+07_ASSETS/**/*.MOV
+07_ASSETS/**/*.mp4
+07_ASSETS/**/*.MP4
+07_ASSETS/**/*.wav
+07_ASSETS/**/*.WAV
+07_ASSETS/**/*.heic
+07_ASSETS/**/*.HEIC
+07_ASSETS/photos/_backup-fichiers-origine/
+07_ASSETS/photos/_inbox/*
+!07_ASSETS/photos/_inbox/README.md
+07_ASSETS/legacy/
+08_ACCOUNTS/*/posts/**/*.mp4
+08_ACCOUNTS/*/posts/**/*.mov
+08_ACCOUNTS/*/work/
+
+# Données de l'infra (exports TikTok / Instagram, JSON yt-dlp, médias téléchargés, jobs, plans, stats brutes, logs)
+infra/data/**
+!infra/data/**/.gitkeep
+infra/node_modules/
+infra/.venv/
+infra/bin/
+infra/models/
+infra/scripts/__pycache__/
+infra/src/**/__pycache__/
+# Plists launchd (macOS) : générés par infra/scripts/launchd/make-plists.js avec les chemins absolus de la machine, jamais versionnés
+infra/scripts/launchd/*.plist
+
+# Secrets
+infra/.env
+01_BRAND/ACCOUNTS_CREDENTIALS.md
+deploy/*.local
+deploy/**/*.secret
+
+# Système
+.DS_Store
+Thumbs.db
+*.log

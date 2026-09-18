@@ -1,0 +1,9 @@
+{
+  "_doc": "Thèmes des cartes générées (carrousels, vidéos série, camemberts), lus par infra/scripts/project_config.py → da_cards.py. Schéma : infra/config/README.md § themes.json. Une entrée `themes.<da>` par valeur du champ `da` (ACCOUNTS.md, accounts.json, fiches EXP). Champs manquants d'un thème = complétés depuis le vocabulaire de infra/config/project.json (langue `lang`). `deco` = PNG dans 01_BRAND/DA/ posé en haut à droite des cartes (null = aucun). Couleurs hex ; polices = fichiers de infra/fonts/.",
+  "card_brand_text": "{{APP_NAME}}",
+  "palette": { "bg": "#343434", "card": "#FFFFFF", "text": "#252525", "btn_no": "#D71C34", "btn_yes": "#00BF62", "fill": "#5B8DEF" },
+  "fonts": { "regular": "DMSans.ttf", "italic": "DMSans-Italic.ttf", "bold": null, "bold_italic": null, "optical_size": 9 },
+  "themes": {
+    "default": { "lang": "fr", "fill": "#5B8DEF", "btn_no": "Non", "btn_yes": "Oui", "bar": "Voir le résultat", "deco": null, "score_label": "pensent pareil." }
+  }
+}

@@ -1,0 +1,24 @@
+# Veille hebdo (infra/scripts/weekly-veille.sh) : import des exports déposés dans infra/data/raw/ (deploy/sync-media.sh --data depuis le Mac)
+# → enrich.js (yt-dlp) → enrich-authors.js → score.js → build-docs.js → 02_VEILLE/ (poussé ensuite par git-sync).
+# Déclenché par content-weekly-veille.timer (lundi 07:00 Europe/Paris, une heure avant content-weekly-stats). Manuel : sudo systemctl start content-weekly-veille
+# Journal : journalctl -u content-weekly-veille et infra/data/veille/<date>.log. Blocage de l'IP par TikTok → relancer plus tard ou veille depuis le Mac.
+[Unit]
+Description=Content - veille hebdo (import + yt-dlp + scoring + docs)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=content
+Group=content
+WorkingDirectory=/home/content/app/infra
+EnvironmentFile=-/home/content/app/infra/.env
+Environment=HOME=/home/content
+Environment=PATH=/home/content/.local/bin:/home/content/app/infra/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=Europe/Paris
+Environment=LANG=C.UTF-8
+ExecStartPre=-/home/content/app/deploy/git-sync.sh --no-push
+ExecStart=/usr/bin/flock -w 1800 /home/content/app/infra/data/content.lock /usr/bin/bash scripts/weekly-veille.sh --limit 60
+ExecStopPost=-/home/content/app/deploy/git-sync.sh
+TimeoutStartSec=2h
+Nice=10
