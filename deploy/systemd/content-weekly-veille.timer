@@ -1,8 +1,8 @@
 [Unit]
-Description=Content - veille hebdo lundi 07:00 Europe/Paris
+Description=Content - veille hebdo lundi 06:00 Europe/Paris
 
 [Timer]
-OnCalendar=Mon *-*-* 07:00:00 Europe/Paris
+OnCalendar=Mon *-*-* 06:00:00 Europe/Paris
 # Rattrapage si le VPS était éteint : une veille en retard vaut mieux qu'aucune (elle précède le relevé de 08:00 et la routine cloud de 09:00)
 Persistent=true
 AccuracySec=1min

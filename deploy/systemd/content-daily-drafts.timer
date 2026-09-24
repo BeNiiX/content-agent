@@ -1,14 +1,15 @@
-# 18:00 heure de Paris, été comme hiver : le suffixe de fuseau dans OnCalendar est géré par systemd (>= 243 ; Ubuntu 24.04 a la 255).
-# Vérifier la prochaine exécution : systemctl list-timers content-* ; tester l'expression : systemd-analyze calendar "*-*-* 18:00:00 Europe/Paris"
-# Changer l'heure : sudo systemctl edit content-daily-drafts.timer (drop-in) ou éditer ici puis `sudo bash deploy/install.sh`.
+# Réveil toutes les 5 min ; l'heure réelle d'envoi est dans infra/config/project.json (daily_hour, daily_minute, daily_enabled),
+# modifiable depuis le tableau de bord (onglet Agent) sans root ni réinstallation. La garde infra/src/publish/due.js
+# (ExecCondition= du service) ne laisse passer qu'un départ par jour, dans les 20 min qui suivent l'heure prévue.
+# Vérifier : systemctl list-timers content-* ; node infra/src/publish/due.js --status
 [Unit]
-Description=Content - envoi du soir a 18:00 Europe/Paris
+Description=Content - envoi du soir (garde horaire toutes les 5 min, heure dans project.json)
 
 [Timer]
-OnCalendar=*-*-* 18:00:00 Europe/Paris
-# Pas de rattrapage : si le VPS était éteint à 18:00, on n'envoie pas les brouillons à 3 h du matin au redémarrage.
+OnCalendar=*-*-* *:00/5:00
+# Pas de rattrapage : la garde refuse de toute façon un départ hors de la fenêtre de 20 min.
 Persistent=false
-AccuracySec=1min
+AccuracySec=30s
 Unit=content-daily-drafts.service
 
 [Install]

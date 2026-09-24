@@ -39,13 +39,13 @@ Le relevé hebdomadaire **vient du VPS** (`deploy/README.md`), deux timers syste
 | Heure (défaut) | Timer | Script | Produit |
 |---|---|---|---|
 | `weekly_stats.hour − 1` (07:00) | `content-weekly-veille` | `infra/scripts/weekly-veille.sh` (import des exports déposés par `deploy/sync-media.sh --data` → enrich → authors → score → docs) | `02_VEILLE/videos/`, `accounts/`, `digests/<date>.md` ; journal `infra/data/veille/<date>.log` |
-| `weekly_stats.hour` (08:00) | `content-weekly-stats` | `infra/scripts/weekly-stats.sh` (pull des pages publiques → report) | `08_ACCOUNTS/<slug>/STATS.md` (par compte) et `06_CALENDAR/stats/<date>.md` (digest tous comptes, avec une liste « À faire (agent) ») |
+| `weekly_stats.hour` (08:00) | `content-daily-stats` | `infra/scripts/daily-stats.sh` (pull des pages publiques → report) | `08_ACCOUNTS/<slug>/STATS.md` (par compte) et `06_CALENDAR/stats/<date>.md` (digest tous comptes, avec une liste « À faire (agent) ») |
 
 `content-git-sync` pousse ces fichiers dans les 10 min ; la routine cloud `revue-hebdo` (`deploy/routines/`) — ou la revue
 interactive — **lit ensuite les fichiers poussés** (`git pull` d'abord). La revue commence par le digest du jour : annoter sous le
 marqueur `notes-agent` (conservé à la régénération), puis dérouler la liste : verdicts des fiches EXP à outlier ≥ 3, post-mortems
 < 0,5 × médiane, marquage `boosted: true` des posts poussés en pub (`05_CAMPAIGNS/CAMPAIGNS.md`), relevé manuel dans TikTok
 Studio (rétention 3 s, temps moyen, territoires — surtout pour les comptes hors marché principal), mise à jour des abonnés dans
-`01_BRAND/ACCOUNTS.md`. Si le relevé n'a pas tourné : `journalctl -u content-weekly-stats -n 50` sur le VPS, puis
-`sudo systemctl start content-weekly-stats` (ou, sur le Mac, `cd infra && bash scripts/weekly-stats.sh`). Un profil « illisible »
+`01_BRAND/ACCOUNTS.md`. Si le relevé n'a pas tourné : `journalctl -u content-daily-stats -n 50` sur le VPS, puis
+`sudo systemctl start content-daily-stats` (ou, sur le Mac, `cd infra && bash scripts/daily-stats.sh`). Un profil « illisible »
 dans le relevé peut venir d'un blocage de l'IP du VPS par TikTok : relancer plus tard ou relever depuis le Mac.

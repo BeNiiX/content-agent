@@ -2,7 +2,7 @@
 name: sop-04-produire-et-publier
 description: Du fichier vidéo au post publié sur TikTok et Instagram, avec fiche expérience — statuts, envoi en brouillon, envoi automatique du soir (VPS)
 type: sop
-updated: 2026-09-18
+updated: 2026-09-21
 ---
 
 # SOP 04 — Produire et publier
@@ -25,26 +25,30 @@ updated: 2026-09-18
 - Fiche `04_EXPERIMENTS/EXP-<NNN>.md` créée avec hypothèse.
 - Ligne dans `06_CALENDAR/QUEUE.md` avec date, plateforme, caption, hashtags, son.
 
-## TikTok — envoi en brouillon (connecteur créateur Higgsfield, MCP)
+## TikTok — envoi en brouillon (API créateur, fournisseur `PUBLISH_BACKEND`)
 
-Rien n'est publié par l'agent : le média part dans les **brouillons TikTok**, l'humain finalise dans l'app.
-Compte créateur, jamais l'API Business. Connexion initiale : `infra/src/publish/CONNEXION_TIKTOK.md`.
+Rien n'est publié par l'agent : le média part dans les **brouillons TikTok** (boîte de réception), l'humain
+finalise dans l'app. Compte créateur, jamais l'API Business. Autorisation initiale d'un compte :
+`infra/src/publish/CONNEXION_TIKTOK.md`.
 
 1. La fiche EXP doit contenir `media_file` et une ligne `Caption : « … »` ; charger la skill `creation-contenu-viral` et cocher sa checklist.
 2. `cd infra && node src/publish/tiktok-draft.js EXP-015` → job dans `data/publish/jobs/`. Zéro `problems` sinon corriger le média.
-3. `tiktok_accounts` → `connector_id` (`active`, sinon `tiktok_reconnect`).
-4. `media_upload` (fichiers du job) → sauver la réponse dans `data/publish/jobs/EXP-015.presigned.json` →
-   `node src/publish/higgsfield-put.js EXP-015` → `media_confirm`.
-5. `tiktok_prepare_publish` en `UPLOAD_TO_DRAFT` (photo_images dans l'ordre des slides, cover 0 ; ou video_url). Carrousel : envoyer **uniquement** la description (phrase fixe `carousel_description`, passée dans le paramètre `title` du connecteur, jamais de paramètre `description`) ; le champ Titre de l'app n'est jamais rempli par le connecteur, **l'humain tape le titre** (`in_app.tiktok_title_field`). Détail et sources : `infra/src/publish/README.md`. Vidéo : `title` = caption.
-   puis `tiktok_publish` avec les confirmations demandées et `is_aigc` du job. `tiktok_publish_status` jusqu'à OK.
-6. `node src/publish/mark-draft.js EXP-015 --publish-id <id>` → fiche EXP `brouillon envoyé` + QUEUE.
-7. Remettre à l'humain la fiche `in_app` du job : texte de front page, **titre à taper** (carrousel), section TEXTES.md, son.
+3. `node src/publish/daily-plan.js` → le plan du jour prend le premier contenu `prêt` du compte dans `06_CALENDAR/QUEUE.md`
+   (un compte sans `<backend>_account_id` ou en pause est ignoré).
+4. `node src/publish/daily-send.js [--exp EXP-015]` : upload des médias chez le fournisseur, création du post en
+   brouillon, puis attente de la confirmation réelle de la plateforme (5 à 20 min, `DAILY_SEND_WAIT_MIN`).
+   Carrousel : on envoie **uniquement** la description (phrase fixe `carousel_description`) comme caption ; le champ
+   Titre de l'app n'est jamais pré-rempli, **l'humain tape le titre** (`in_app.tiktok_title_field`). Vidéo : aucun
+   texte n'arrive (limite TikTok), la caption est envoyée dans le message du soir. Détail et sources : `infra/src/publish/README.md`.
+5. Traçage automatique (`daily-result.js` → `mark-draft.js`) : fiche EXP `brouillon envoyé` + QUEUE. À la main :
+   `node src/publish/mark-draft.js EXP-015 --publish-id <id>`.
+6. Remettre à l'humain la fiche `in_app` du job : texte de front page, **titre à taper** (carrousel), section TEXTES.md, son.
    Il ouvre le brouillon dans l'app, saisit textes + musique, poste.
-8. Quand c'est posté : `node src/publish/mark-draft.js EXP-015 --posted --post-url <url>`.
+7. Quand c'est posté : `node src/publish/mark-draft.js EXP-015 --posted --post-url <url>`.
 
-Limites : la musique et la caption ne survivent pas toujours au brouillon (TikTok), d'où l'étape 7.
-Cadence : au plus une journée de contenus par envoi, 5 / min, 13 / 24 h.
-`DIRECT_POST` seulement si `MISSION.md` → `publish: auto`.
+Limites : la musique et la caption ne survivent pas au brouillon (TikTok), d'où l'étape 6.
+Cadence : au plus une journée de contenus par envoi (1 brouillon par compte et par jour).
+La publication directe (`DIRECT_POST`) est interdite tant que `MISSION.md` → `publish: confirm`.
 
 Fallback : publication manuelle depuis l'app TikTok (l'humain), l'agent fournit caption + hashtags + son.
 
@@ -52,7 +56,7 @@ Fallback : publication manuelle depuis l'app TikTok (l'humain), l'agent fournit 
 
 Exécuté **sur le VPS** (`deploy/README.md`, timer `content-daily-drafts`, plus de launchd sur le Mac) chaque jour à
 `project.json → daily_hour` : `infra/scripts/daily-drafts.sh` envoie en brouillon le **prochain contenu `prêt`** de la section
-de chaque compte connecté dans `06_CALENDAR/QUEUE.md` (ordre du tableau), puis envoie à l'humain une notification (canal
+de chaque compte relié au fournisseur d'envoi dans `06_CALENDAR/QUEUE.md` (ordre du tableau), puis envoie à l'humain une notification (canal
 `NOTIFY_CHANNEL` de `infra/.env`, ntfy recommandé) avec, par compte : titre à taper, texte natif de la slide 1, bulles +
 timings pour une vidéo, son, stock restant ; et « PLUS DE STOCK » pour un compte vide. Conséquences pour l'agent :
 **l'ordre de QUEUE.md est l'ordre d'envoi**, une fiche passe automatiquement en `brouillon envoyé` (commit + push par
@@ -63,7 +67,7 @@ relevé des posts effectivement publiés (relevé hebdo, SOP_06). Lancer hors ho
 ## Instagram Reels — via Graph API
 
 Pré-requis dans `infra/.env` : `IG_USER_ID`, `IG_ACCESS_TOKEN` (compte pro/créateur lié à une Page).
-La vidéo doit être accessible par URL publique (hébergement public au choix : bucket de l'app, Higgsfield, `/public-media/` de Caddy sur le VPS…).
+La vidéo doit être accessible par URL publique (hébergement public au choix : bucket de l'app, `/public-media/` de Caddy sur le VPS…).
 
 ```bash
 node src/publish/instagram.js --video-url https://... --caption "..." [--share-to-feed] [--dry-run]

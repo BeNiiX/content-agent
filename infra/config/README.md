@@ -5,7 +5,7 @@ Le code de `infra/` est générique. Tout ce qui dépend de l'app vit dans ces f
 | Fichier | Rôle | Lu par |
 |---|---|---|
 | `project.json` | Identité de l'app : nom, slug, langues, marchés, horaires, vocabulaire, CTA, hashtags | `src/lib/project.js` (Node), `scripts/project_config.py` (Python) |
-| `accounts.json` | Registre des comptes TikTok : handle, appareil, connecteur Higgsfield, DA, description fixe des carrousels, flags | `src/publish/lib.js` → tous les scripts de publication, le tableau de bord, `posts-md.py` |
+| `accounts.json` | Registre des comptes TikTok : handle, appareil, identifiant chez le fournisseur d'envoi (`<backend>_account_id`), DA, description fixe des carrousels, flags | `src/publish/lib.js` → tous les scripts de publication, le tableau de bord, `posts-md.py` |
 | `competitors.json` | Comptes concurrents suivis par la veille | `src/enrich-authors.js`, `src/build-docs.js` |
 | `../../01_BRAND/DA/themes.json` | Thèmes des cartes (palette, polices, texte de marque, variantes) | `scripts/da_cards.py` → carrousels, vidéos série, camemberts |
 | `../.env` | Secrets et réglages machine (`.env.example` documente chaque clé) | `src/lib/env.js` |
@@ -17,14 +17,16 @@ Une nouvelle instance = copier `project.json`, `accounts.json`, `themes.json`, `
 | Clé | Type | Exemple (app fictive « Mon App ») | Usage |
 |---|---|---|---|
 | `name` | string | `"Mon App"` | Nom affiché : tableau de bord, `--brand` de `render-frame.py`, prompt de l'envoi du soir (`__APP_NAME__`), titre des notifications par défaut |
-| `slug` | string (court, `[a-z0-9-]`) | `"monapp"` | Labels des tâches planifiées `com.content-agent.<slug>.daily-drafts` / `.weekly-stats` (launchd, systemd), noms de sujets |
+| `slug` | string (court, `[a-z0-9-]`) | `"monapp"` | Labels des tâches planifiées `com.content-agent.<slug>.daily-drafts` / `.daily-stats` / `.weekly-veille` (launchd, systemd), noms de sujets |
 | `app_store_url` / `play_store_url` | string ou null | `"https://apps.apple.com/app/id0000000000"` | Liens store pour les CTA et docs |
 | `languages` | string[] | `["fr", "en"]` | Langues des contenus produits |
 | `default_language` | string | `"fr"` | Langue de repli de `t(key)` |
 | `markets` | string[] | `["FR", "US"]` | Marchés ciblés (info) |
 | `timezone` | string IANA | `"Europe/Paris"` | Fuseau des horaires ci-dessous |
 | `daily_hour` | int 0-23 | `18` | Heure de l'envoi du soir (plist launchd, tableau de bord) |
-| `weekly_stats` | `{ weekday, hour }` | `{ "weekday": 1, "hour": 8 }` | Relevé hebdo des comptes (1 = lundi) |
+| `daily_minute` | entier 0-59 | `45` | Minute de l'envoi du soir (17:45 : les brouillons sont livrés par la plateforme vers 18:00) |
+| `stats_hour` | entier 0-23 | `7` | Relevé quotidien des comptes (stats publiques → STATS.md, digest) |
+| `weekly_veille` | `{ weekday, hour }` | `{ "weekday": 1, "hour": 6 }` | Veille hebdo (import, enrichissement, scoring ; 1 = lundi) |
 | `vocabulary` | objet de valeurs localisées | voir ci-dessous | Mots de l'app dans les rendus et les docs générées |
 | `cta` | valeur localisée | `"C'est l'app Mon App sur l'App Store"` | Phrase d'appel à mettre en caption |
 | `hashtags_core` | valeur localisée → string[] | `["#monapp", "#jeudesoirée"]` | Hashtags toujours présents (le reste tourne, voir `03_LIBRARY/HOOKS.md`) |
@@ -69,4 +71,4 @@ Vérification de non-régression après modification : régénérer un carrousel
 
 ## `accounts.json`
 
-Voir le champ `_doc` du fichier. Champs par compte : `handle`, `device`, `connector_id`, `connector_name`, `role`, `icp`, `da` (clé de `themes.json`), `lang` (optionnel : langue du compte, sinon déduite de `da`), `connected_at`, `carousel_description`, `paused`, `production_paused` (+ horodatages). Les sections `## <slug>` de `06_CALENDAR/QUEUE.md` doivent porter ces slugs.
+Voir le champ `_doc` du fichier. Champs par compte : `handle`, `device`, `<backend>_account_id` (identifiant du compte chez le fournisseur d'envoi choisi par `PUBLISH_BACKEND`, ex. `postforme_account_id`), `<backend>_connected_at`, `role`, `icp`, `da` (clé de `themes.json`), `lang` (optionnel : langue du compte, sinon déduite de `da`), `carousel_description`, `paused`, `production_paused` (+ horodatages). Les sections `## <slug>` de `06_CALENDAR/QUEUE.md` doivent porter ces slugs.

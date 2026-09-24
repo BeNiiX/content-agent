@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tri de la boîte de dépôt photos 07_ASSETS/photos/_inbox/.
 Passe 1 (sans option) : convertit HEIC/PNG/WebP en JPG (sips), copie l'original dans _backup-fichiers-origine/, fabrique une planche
-contact numérotée (_contact-sheet-NN.jpg) et un _triage.json à compléter par l'agent (theme, situation, precision, personnes, provenance).
+contact numérotée (_contact-sheet-NN.jpg) et un _triage.json à compléter par l'agent (theme, situation, precision, personnes).
 Passe 2 (--apply) : renomme <theme>-<situation>-<precision>.jpg, range dans photos/<theme>/ (créé si besoin), ajoute la ligne au
 catalogue PHOTOS.md (section du thème, créée si besoin), retire l'image de _inbox/.
 Usage : .venv/bin/python scripts/photos-inbox.py [--apply] [--max-side 2160]"""
@@ -26,7 +26,7 @@ if not a.apply:
     files = list_inbox()
     if not files: print("_inbox/ vide"); sys.exit(0)
     os.makedirs(BACKUP, exist_ok=True)
-    triage = json.load(open(TRIAGE, encoding="utf8")) if os.path.exists(TRIAGE) else {"_doc": "À remplir par l'agent après lecture de la planche contact : theme (soiree|amis|couple|sport|famille|taf|paysages|…), situation (2-3 mots), precision (1-2 mots), personnes (nombre ou 0), provenance (reelle|ia|inconnue), angles (liste). Laisser skip: true pour écarter une photo (reste dans _inbox/_ecartees/).", "items": {}}
+    triage = json.load(open(TRIAGE, encoding="utf8")) if os.path.exists(TRIAGE) else {"_doc": "À remplir par l'agent après lecture de la planche contact : theme (soiree|amis|couple|sport|famille|taf|paysages|…), situation (2-3 mots), precision (1-2 mots), personnes (nombre ou 0), angles (liste). Laisser skip: true pour écarter une photo (reste dans _inbox/_ecartees/).", "items": {}}
     items = triage["items"]; converted = []
     for i, src in enumerate(files, 1):
         base, ext = os.path.splitext(os.path.basename(src)); ext = ext.lower()
@@ -41,7 +41,7 @@ if not a.apply:
         if max(im.size) > a.max_side: im.thumbnail((a.max_side, a.max_side), Image.LANCZOS)
         im.convert("RGB").save(jpg, quality=92); converted.append(jpg)
         key = os.path.basename(jpg)
-        items.setdefault(key, {"origine": os.path.basename(src), "size": list(im.size), "theme": "", "situation": "", "precision": "", "personnes": None, "provenance": "inconnue", "angles": [], "skip": False})
+        items.setdefault(key, {"origine": os.path.basename(src), "size": list(im.size), "theme": "", "situation": "", "precision": "", "personnes": None, "angles": [], "skip": False})
     # planches contact (24 par planche)
     for s in range(0, len(converted), 24):
         chunk = converted[s:s + 24]; cols = 6; th = 360; tw = 270
@@ -67,7 +67,7 @@ for key, it in items.items():
     dst_dir = os.path.join(PHOTOS, theme); os.makedirs(dst_dir, exist_ok=True); dst = os.path.join(dst_dir, name); n = 2
     while os.path.exists(dst): dst = os.path.join(dst_dir, name.replace(".jpg", f"-{n:02d}.jpg")); n += 1
     shutil.move(src, dst); moved += 1
-    desc = f"{it['situation']}{', ' + it['precision'] if it.get('precision') else ''}{', ' + str(it['personnes']) + ' pers.' if it.get('personnes') else ''} ({it.get('provenance', 'inconnue')})"
+    desc = f"{it['situation']}{', ' + it['precision'] if it.get('precision') else ''}{', ' + str(it['personnes']) + ' pers.' if it.get('personnes') else ''}"
     row = f"| `{os.path.basename(dst)}` | {desc} | {', '.join(it.get('angles') or []) or '—'} | — |"
     m = re.search(rf"^## {re.escape(theme)}/ \((\d+)\)\s*$", cat, re.M)
     if m:

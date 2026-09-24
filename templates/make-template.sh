@@ -5,6 +5,7 @@
 #   templates/make-template.sh <dossier-cible>     # inexistant ou vide (refus d'écraser)
 #
 # Contenu produit : CLAUDE.md, README.md, .claude/, 00_AGENT/SOP/, 00_AGENT/SCORING.md, 00_AGENT/CREATIVE_FRAMEWORK.md,
+# 03_LIBRARY/gabarits/{README,_TEMPLATE_GABARIT}.md (cadre des gabarits ; les gabarits eux-mêmes sont d'instance),
 # infra/ (code, fonts, scripts ; sans data/, .env, .venv/, bin/, models/, node_modules/, config/*.json réels), deploy/ (si présent),
 # templates/ (README, new-project.sh, make-template.sh, workspace/), .gitignore, .gitattributes (si présent), puis les fichiers de
 # templates/workspace/ copiés à la racine tels quels ({{APP_NAME}}…), infra/config/*.json.example, infra/data/** vides.
@@ -63,7 +64,7 @@ copy() { local rel="$1"; [ -e "$SRC/$rel" ] || { echo "   (absent : $rel)"; retu
   if [ -d "$SRC/$rel" ]; then cp -R "$SRC/$rel" "$TARGET/$(dirname "$rel")/"; else cp "$SRC/$rel" "$TARGET/$rel"; fi
   echo "   + $rel"; }
 echo "1. Framework"
-for rel in CLAUDE.md README.md .claude 00_AGENT/SOP 00_AGENT/SCORING.md 00_AGENT/CREATIVE_FRAMEWORK.md deploy .gitignore .gitattributes; do copy "$rel"; done
+for rel in CLAUDE.md README.md .claude 00_AGENT/SOP 00_AGENT/SCORING.md 00_AGENT/CREATIVE_FRAMEWORK.md 03_LIBRARY/gabarits/README.md 03_LIBRARY/gabarits/_TEMPLATE_GABARIT.md deploy .gitignore .gitattributes; do copy "$rel"; done
 mkdir -p "$TARGET/infra"
 ( cd "$SRC/infra" && find . -mindepth 1 \
     \( -path ./data -o -path ./.venv -o -path ./bin -o -path ./models -o -path ./node_modules -o -name .DS_Store -o -name __pycache__ \) -prune -o \

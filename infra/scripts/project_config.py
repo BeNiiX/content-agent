@@ -17,7 +17,9 @@ DA_DIR = os.path.join(ROOT, "01_BRAND", "DA")
 DEFAULTS = {
     "name": "Content Agent", "slug": "app", "app_store_url": None, "play_store_url": None,
     "languages": ["fr", "en"], "default_language": "fr", "markets": [], "timezone": "Europe/Paris", "daily_hour": 18,
-    "weekly_stats": {"weekday": 1, "hour": 8},
+    "daily_minute": 0,
+    "stats_hour": 7,
+    "weekly_veille": {"weekday": 1, "hour": 6},
     "vocabulary": {
         "item": {"fr": "carte", "en": "card"}, "item_plural": {"fr": "cartes", "en": "cards"},
         "verdict_label": {"fr": "des joueurs pensent comme toi", "en": "of players think like you"},
@@ -39,7 +41,8 @@ def project():
         except Exception as e: print(f"config/project.json illisible : {e}")
     p = dict(DEFAULTS); p.update(raw)
     p["vocabulary"] = {**DEFAULTS["vocabulary"], **(raw.get("vocabulary") or {})}
-    p["weekly_stats"] = {**DEFAULTS["weekly_stats"], **(raw.get("weekly_stats") or {})}
+    p["weekly_veille"] = {**DEFAULTS["weekly_veille"], **(raw.get("weekly_veille") or raw.get("weekly_stats") or {})}
+    if "stats_hour" not in raw and raw.get("weekly_stats"): p["stats_hour"] = raw["weekly_stats"].get("hour", p["stats_hour"])
     p["notify_title"] = p.get("notify_title") or p["name"]
     _project = p; return p
 

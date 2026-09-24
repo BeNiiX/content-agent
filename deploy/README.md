@@ -36,15 +36,15 @@ agents cloud (routines Claude Code) travaillent **uniquement via GitHub** et ne 
  │ production-specs (mar/ven)    │   │ timers systemd (Europe/Paris) :                                              │
  │ revue-hebdo    (lundi 10:00)  │   │   content-git-sync        */10 min  commit d'état + pull --rebase + push      │
  │ → specs, fiches EXP, QUEUE,   │   │   content-render-pending  */1 h     specs « à monter » → JPEG / MP4 → « prêt »│
- │   concepts, verdicts, mémos   │   │   content-daily-drafts    18:00     1 brouillon TikTok / compte (claude -p +  │
- │ commit + push sur main        │   │                                     connecteur Higgsfield) + message ntfy    │
+ │   concepts, verdicts, mémos   │   │   content-daily-drafts    18:00     1 brouillon TikTok / compte (Node pur,    │
+ │ commit + push sur main        │   │                                     PUBLISH_BACKEND) + message ntfy          │
  │ (pas de médias, pas de secret)│   │   content-weekly-veille   lun 07:00 exports data/raw → yt-dlp → 02_VEILLE/    │
- │                               │   │   content-weekly-stats    lun 08:00 yt-dlp → STATS.md, digest, fiches EXP     │
+ │                               │   │   content-daily-stats    lun 08:00 yt-dlp → STATS.md, digest, fiches EXP     │
  └───────────────────────────────┘   │   content-auth-check      09:00     session Claude encore valide ?           │
                                      │ services : content-dashboard (127.0.0.1:4747) ← Caddy HTTPS + auth basique   │
                                      │            https://DOMAIN/ (tableau de bord) · /media/07_ASSETS, /media/08_ACCOUNTS │
                                      └──────────────────────────────────────────────────────────────────────────────┘
-                                                        │ connecteur Higgsfield (lié au compte claude.ai)
+                                                        │ API TikTok créateur via le fournisseur d'envoi
                                                         ▼
                                                  brouillons TikTok → l'humain finalise dans l'app
 ```
@@ -62,7 +62,7 @@ Fichiers de ce dossier :
 | Fichier | Rôle |
 |---|---|
 | `install.sh` | installation idempotente (paquets, Node 22, yt-dlp, venv Pillow, Claude Code, unités systemd, Caddy) |
-| `systemd/content-*.service` / `.timer` | 6 jobs (git-sync, render-pending, daily-drafts, weekly-veille, weekly-stats, auth-check) + tableau de bord |
+| `systemd/content-*.service` / `.timer` | 6 jobs (git-sync, render-pending, daily-drafts, daily-stats, weekly-veille, auth-check) + tableau de bord |
 | `Caddyfile`, `caddy.env.example` | HTTPS automatique, auth basique, `/media/*` en lecture, `/` → tableau de bord |
 | `git-sync.sh` | commit d'état, `pull --rebase --autostash`, push ; conflit → abandon + notification |
 | `sync-media.sh` | **depuis le Mac** : rsync des vidéos vers le VPS (`--from-vps` pour rapatrier les rendus ; `--data` ajoute `infra/data/{raw,tiktok,videos,instagram}` pour la veille) |
@@ -81,9 +81,11 @@ Fichiers de ce dossier :
 - Le dépôt sur **GitHub, privé**, branche par défaut `main`, avec `07_ASSETS/photos/*.jpg` et les JPEG des carrousels
   dedans (déjà le cas : seuls `*.mp4`, `*.mov`, `*.wav`, `07_ASSETS/legacy/`, `08_ACCOUNTS/*/work/`, `infra/data/`,
   `infra/.env` sont ignorés — voir `.gitignore`).
-- L'abonnement claude.ai de l'humain (Pro / Max), avec le connecteur **Higgsfield** déjà ajouté et autorisé sur
-  https://claude.ai/customize/connectors (c'est le même compte qui sera utilisé sur le VPS : le connecteur est **lié au
-  compte**, pas à la machine).
+- L'abonnement claude.ai de l'humain (Pro / Max) pour les revues headless du VPS (`claude auth login`, étape 4).
+  L'envoi du soir, lui, est du Node pur : il n'a besoin d'aucune session Claude.
+- Un compte chez le **fournisseur d'envoi des brouillons** (`PUBLISH_BACKEND`, aujourd'hui Post for Me, 10 $/mois) et
+  sa clé API (`POSTFORME_API_KEY`) ; chaque compte TikTok autorise l'app du fournisseur une fois
+  (`infra/src/publish/CONNEXION_TIKTOK.md`).
 - Sur le Mac : `git`, `rsync` (openrsync livré avec macOS suffit), `ssh`.
 
 Estimation : 45 min la première fois, dont 10 d'attente apt.
@@ -172,20 +174,17 @@ claude auth login          # (ou simplement `claude`, puis /login)
 3. `Login successful`. Les identifiants sont dans `~/.claude/.credentials.json` (mode 0600) et se **rafraîchissent
    seuls** tant que la session est valide.
 
-Puis, **une fois, en interactif** dans `~/app/infra` : lancer `claude`, accepter la question de confiance du dossier,
-taper `/mcp` — la section **claude.ai** doit lister `claude.ai Higgsfield` (connecté). Quitter avec `/exit`.
-(`claude mcp list` n'affiche que les serveurs configurés localement, pas les connecteurs claude.ai ; le panneau `/mcp`
-est la référence. Test headless sans rien publier :
-`claude -p "Appelle tiktok_accounts et liste les comptes" --allowedTools mcp__claude_ai_Higgsfield__tiktok_accounts --max-turns 3`.)
+Puis, **une fois, en interactif** dans `~/app/infra` : lancer `claude` et accepter la question de confiance du dossier.
+Quitter avec `/exit`.
 
-Pourquoi ce flux et pas un jeton : `claude setup-token` / `CLAUDE_CODE_OAUTH_TOKEN` (jeton un an pour la CI) **n'a pas
-accès aux connecteurs claude.ai** — l'envoi du soir a besoin de Higgsfield, donc de la session claude.ai. Idem pour une
-clé API `ANTHROPIC_API_KEY` : ne jamais la mettre dans `.env` sur le VPS, elle prendrait le pas sur la session et ferait
-disparaître les connecteurs. Vérifier à tout moment : `claude auth status` (code 0 = connecté) ou `/status` en session.
+À quoi sert cette session : aux **revues headless** (`daily-stats.sh` avec `WEEKLY_CLAUDE=1`, dépannage). **L'envoi du
+soir n'en a pas besoin** : c'est du Node pur qui appelle l'API du fournisseur (`PUBLISH_BACKEND`). Ne jamais définir
+`ANTHROPIC_API_KEY` dans `.env` sur le VPS : elle prendrait le pas sur la session claude.ai et ferait facturer l'usage.
+Vérifier à tout moment : `claude auth status` (code 0 = connecté) ou `/status` en session.
 
 Expiration : Claude Code prévient 3 jours avant (`Your login expires in 3 days · run /login to renew`) — mais un job
 headless ne le voit pas. D'où `content-auth-check.timer` (09:00) : si `claude auth status` échoue, une notification
-(ntfy / Telegram selon `.env`) demande de refaire `claude auth login` avant 18:00. Après un `/logout` ou un changement
+(ntfy / Telegram selon `.env`) demande de refaire `claude auth login`. Après un `/logout` ou un changement
 de mot de passe claude.ai, refaire la procédure.
 
 Options utiles dans `~/.claude/settings.json` de l'utilisateur `content` :
@@ -203,7 +202,7 @@ Options utiles dans `~/.claude/settings.json` de l'utilisateur `content` :
 | Variable | Valeur |
 |---|---|
 | `NOTIFY_CHANNEL` / `NTFY_TOPIC` | `ntfy` + le sujet secret de l'app iPhone (ou `telegram` + `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`). `imessage` n'existe pas sous Linux. |
-| `DAILY_MODEL` | `claude-sonnet-5` (≈ 0,3 $/brouillon) |
+| `PUBLISH_BACKEND` / `POSTFORME_API_KEY` | `postforme` + la clé API du fournisseur d'envoi (obligatoire, sinon aucun brouillon ne part) |
 | `DAILY_ACCOUNTS`, `DAILY_DRY_RUN` | vides en production ; `DAILY_DRY_RUN=1` le temps des tests |
 | `YTDLP_COOKIES_FROM_BROWSER` | **vide** (pas de navigateur sur le VPS) |
 | `VPS_HOST`, `VPS_USER`, `VPS_PATH` | inutiles sur le VPS ; ce sont les lignes que **le Mac** lit pour `sync-media.sh` (à mettre dans le `.env` du Mac) |
@@ -227,6 +226,11 @@ carrousels et les fiches EXP, eux, arrivent par `git pull`). `--data` ajoute `in
 
 ## Étape 7 — Caddy : domaine, HTTPS, authentification
 
+> **VPS déjà équipé de nginx + certbot** (ports 80/443 pris) : lancer `install.sh` avec `SKIP_CADDY=1` et utiliser
+> `deploy/nginx/content.conf.example` (reverse proxy simple ; l'authentification est le formulaire de connexion de l'application, `DASHBOARD_USER` / `DASHBOARD_PASSWORD` dans `infra/.env`), voir les commandes en tête de ce fichier.
+> Sans DNS, le tableau de bord reste accessible par tunnel SSH : `ssh -N -L 4747:127.0.0.1:4747 content@<vps>`.
+
+
 ```bash
 sudo nano /etc/caddy/env            # DOMAIN=content.mondomaine.fr  (A/AAAA déjà pointés) ; DASH_USER / DASH_HASH générés par install.sh
 sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile --envfile /etc/caddy/env
@@ -245,8 +249,8 @@ Changer le mot de passe : `caddy hash-password --plaintext 'nouveau'` → `DASH_
 `sudo systemctl restart caddy`. Ajouter un utilisateur : dupliquer la ligne dans le bloc `basic_auth` du Caddyfile.
 
 **Médias publics — à n'activer que si nécessaire.** Les photos ne sont pas publiques : `/media/` reste derrière
-l'authentification. Si un outil externe doit un jour *télécharger* un fichier depuis une URL sans mot de passe (le
-connecteur Higgsfield `media_import_url`, au lieu de `media_upload` + `higgsfield-put.js` utilisé aujourd'hui), mettre
+l'authentification. Si un outil externe doit un jour *télécharger* un fichier depuis une URL sans mot de passe (un
+fournisseur qui exige une URL publique plutôt que l'upload direct utilisé aujourd'hui), mettre
 `MEDIA_PUBLIC=true` et `MEDIA_TOKEN=$(openssl rand -hex 24)` dans `/etc/caddy/env`, redémarrer Caddy, et l'URL devient
 `https://DOMAIN/public-media/<token>/08_ACCOUNTS/<compte>/posts/<fichier>`. Tout ce qui n'est pas sous `07_ASSETS` /
 `08_ACCOUNTS`, les dossiers `work/` et les fichiers cachés restent en 404, jeton ou pas. Régénérer le jeton après usage.
@@ -281,9 +285,9 @@ une relance le même jour ne renvoie pas sur un compte déjà servi.
 |---|---|---|---|---|
 | `content-git-sync` | toutes les 10 min | `deploy/git-sync.sh` | attend ≤ 2 min | non |
 | `content-render-pending` | chaque heure à :05 | pull, `render-pending.js --limit 20`, push | oui | non |
-| `content-daily-drafts` | **18:00** | pull, `scripts/daily-drafts.sh`, push | oui | **non** (pas d'envoi à 3 h du matin) |
-| `content-weekly-veille` | **lundi 07:00** (`weekly_stats.hour − 1`) | pull, `scripts/weekly-veille.sh --limit 60` (exports de `infra/data/raw/` → yt-dlp → `02_VEILLE/`), push | oui | oui |
-| `content-weekly-stats` | **lundi 08:00** | pull, `scripts/weekly-stats.sh`, push | oui | oui |
+| `content-daily-drafts` | **`daily_hour`:`daily_minute`** de `project.json` (timer toutes les 5 min + garde `src/publish/due.js`) | garde, pull, `scripts/daily-drafts.sh`, push | oui | **non** (fenêtre de 20 min, pas d'envoi à 3 h du matin) |
+| `content-weekly-veille` | **lundi 06:00** (`weekly_veille`) | pull, `scripts/weekly-veille.sh --limit 60` (exports de `infra/data/raw/` → yt-dlp → `02_VEILLE/`), push | oui | oui |
+| `content-daily-stats` | **lundi 08:00** | pull, `scripts/daily-stats.sh`, push | oui | oui |
 | `content-auth-check` | 09:00 | `deploy/auth-check.sh` | — | oui |
 | `content-dashboard` | service permanent | `node src/dashboard/server.js --no-open --port 4747`, `Restart=always` | — | — |
 
@@ -295,10 +299,12 @@ soient lisibles). Les services portent `Environment=TZ=Europe/Paris` pour les m�
 Vérifier une expression : `systemd-analyze calendar "*-*-* 18:00:00 Europe/Paris"` (affiche la prochaine occurrence en
 local et en UTC). Alternative non retenue : `OnCalendar=*-*-* 16:00:00 UTC` — juste en été, faux d'une heure en hiver.
 
-**Source des heures.** `install.sh` lit `infra/config/project.json` (`timezone`, `daily_hour`, `weekly_stats.weekday`
+**Source des heures.** `install.sh` lit `infra/config/project.json` (`timezone`, `daily_hour`, `stats_hour`, `weekly_veille.weekday`
 / `.hour` ; 1 = lundi ; la veille hebdo prend le même jour, une heure avant) et réécrit les lignes `OnCalendar=` et `TZ=` des unités en les copiant dans `/etc/systemd/system/` :
-changer l'heure de l'envoi du soir = modifier `daily_hour` dans `project.json`, commit, puis `sudo bash deploy/install.sh`
-sur le VPS. Sans `project.json`, les valeurs des fichiers `deploy/systemd/*.timer` s'appliquent (18:00, lundi 08:00,
+changer l'heure du relevé ou de la veille = modifier `project.json`, commit, puis `sudo bash deploy/install.sh`
+sur le VPS. **L'envoi du soir fait exception** : son timer tourne toutes les 5 min et la garde `infra/src/publish/due.js`
+(`ExecCondition=`) lit `daily_hour`, `daily_minute` et `daily_enabled` à chaque passage, donc l'heure se change depuis le tableau de bord
+(onglet Agent) sans root ni réinstallation ; un seul départ par jour (tampon `infra/data/scheduler/daily-drafts-<date>`). Sans `project.json`, les valeurs des fichiers `deploy/systemd/*.timer` s'appliquent (18:00, lundi 08:00,
 Europe/Paris).
 
 **Changer une heure** ponctuellement sans toucher au dépôt : `sudo systemctl edit content-daily-drafts.timer` puis
@@ -363,13 +369,17 @@ abandon + sortie 1, relance sans double notification.
 Test à blanc : `node src/produce/render-pending.js --dry-run [--account <slug>] [--format F02]`. Sur le dépôt du 18/09 :
 « 74 spec(s) lue(s) · 0 à rendre · 74 sortie(s) adoptée(s) ».
 
+## Abonnement, pas de facturation
+
+La session du VPS est ouverte par `claude auth login` (compte claude.ai, plan Max) : les appels headless (revues) sont décomptés des limites de l'abonnement, comme une session interactive, et **rien n'est facturé à l'usage**. Le `total_cost_usd` affiché par `claude -p --output-format json` est un équivalent au tarif API, informatif (`costBasis: list`). Ne jamais définir `ANTHROPIC_API_KEY` (ni `CLAUDE_CODE_OAUTH_TOKEN` issu d'une clé) sur le serveur : `node src/doctor.js` le signale. L'envoi du soir, lui, ne consomme aucun jeton : son seul coût est l'abonnement au fournisseur d'envoi.
+
 ## Maintenance
 
 | Quoi | Commande |
 |---|---|
 | Mettre à jour Claude Code | automatique (installateur natif) ; forcer : `sudo -iu content claude update` ; diagnostic : `claude doctor` |
-| Session expirée | notification du matin → `sudo -iu content claude auth login` (étape 4) ; vérifier `/mcp` |
-| yt-dlp (TikTok change souvent) | `sudo yt-dlp -U` (mensuel, ou dès que `weekly-stats` remonte des erreurs) |
+| Session expirée | notification du matin → `sudo -iu content claude auth login` (étape 4) |
+| yt-dlp (TikTok change souvent) | `sudo yt-dlp -U` (mensuel, ou dès que `daily-stats` remonte des erreurs) |
 | Système | `sudo apt update && sudo apt upgrade` ; `sudo reboot` si noyau (les timers reprennent seuls) |
 | Dépôt / unités modifiés | `sudo bash /home/content/app/deploy/install.sh` (recopie les unités, valide Caddy) |
 | Journaux | `journalctl -u content-daily-drafts -n 100`, `-u content-render-pending`, `-u content-git-sync`, `-u caddy` ; scripts : `infra/data/publish/daily/<date>.log`, `data/accounts/weekly.log`, `data/render/<date>.log` |
@@ -389,7 +399,7 @@ Test à blanc : `node src/produce/render-pending.js --dry-run [--account <slug>]
 | `YTDLP_COOKIES_FROM_BROWSER` | pas de navigateur | laisser vide. Si TikTok bloque l'IP du VPS (`pull.js` / `enrich.js` en erreur « profil illisible »), lancer la veille depuis le Mac et pousser `02_VEILLE/` par git, ou tester `--cookies` avec un export de cookies (non câblé aujourd'hui, voir « à corriger »). |
 | Onglet « Ce soir » du tableau de bord | lit **systemd** sous Linux (`list-timers`, `is-active`, `show -p ExecMainStatus`) et launchd sous macOS | rien à faire ; `systemctl list-timers 'content-*'` reste la référence. |
 
-`scripts/daily-drafts.sh` et `scripts/weekly-stats.sh` ont été relus : bash, `date +%F`, `sed`, `grep`, `node`, `claude`
+`scripts/daily-drafts.sh` et `scripts/daily-stats.sh` ont été relus : bash, `date +%F`, `sed`, `grep`, `node`, `claude`
 uniquement ; le `/opt/homebrew/bin` dans leur PATH est sans effet sous Linux. Ils tournent tels quels.
 
 ## À corriger (autres propriétaires) → `deploy/TODO.md`
@@ -408,12 +418,13 @@ désinstallation des deux jobs launchd (commandes dans `mac.md`), `extract.js` /
 
 | Symptôme | Cause probable | Remède |
 |---|---|---|
-| `claude -p` échoue avec « Login expired » dans `daily/<date>.log` | session claude.ai expirée | `claude auth login` (étape 4) |
-| le brouillon part mais l'outil `media_upload` est « unavailable » | connecteur non chargé : session non claude.ai (clé API dans l'environnement ?) ou connecteur déconnecté | `unset ANTHROPIC_API_KEY`, vérifier `/mcp`, réautoriser Higgsfield sur claude.ai/customize/connectors |
+| `PUBLISH_BACKEND absent de .env` dans `daily/<date>.log` | fournisseur d'envoi non configuré | renseigner `PUBLISH_BACKEND` + `<BACKEND>_API_KEY` dans `infra/.env` (étape 5) |
+| `aucun compte du plan n'a de <backend>_account_id` | comptes TikTok pas encore autorisés chez le fournisseur | `node src/publish/daily-send.js --connect-url <slug>` puis `--accounts` (`infra/src/publish/CONNEXION_TIKTOK.md`) |
+| le post est soumis mais reste « en traitement » après 25 min | file du fournisseur lente ou média refusé par TikTok | `node src/publish/daily-send.js --probe`, vérifier le média (PNG, résolution, durée), relancer le lendemain |
 | `git-sync` : « conflit git au rebase » | même fichier modifié des deux côtés | résoudre à la main (§ Flux git) |
 | `git-sync` : « push impossible » | clé de déploiement sans écriture, branche protégée | Deploy key → Allow write access ; retirer la protection de `main` ou faire pousser les routines sur `claude/…` |
 | `render-pending` : « asset manquant » | screen-record / rush pas rsyncé | `deploy/sync-media.sh` depuis le Mac |
 | Caddy ne démarre pas | `DOMAIN` vide, `DASH_HASH` vide, DNS pas encore propagé | `caddy validate … --envfile /etc/caddy/env` ; `DOMAIN=localhost` en attendant |
-| `weekly-stats` / `weekly-veille` : « profil illisible (blocage ?) », erreurs yt-dlp | TikTok filtre l'IP du VPS | relancer plus tard ; sinon veille depuis le Mac (`npm run sync` + `git push` de `02_VEILLE/`) |
+| `daily-stats` / `weekly-veille` : « profil illisible (blocage ?) », erreurs yt-dlp | TikTok filtre l'IP du VPS | relancer plus tard ; sinon veille depuis le Mac (`npm run sync` + `git push` de `02_VEILLE/`) |
 | `weekly-veille` : « aucun export dans data/raw/tiktok/ » | exports pas rsyncés | `deploy/sync-media.sh --data` depuis le Mac (l'enrichissement des items déjà importés tourne quand même) |
 | timer « n/a » dans `list-timers` | unité désactivée | `sudo systemctl enable --now content-x.timer` |

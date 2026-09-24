@@ -16,7 +16,9 @@ rule: un format n'apparaît dans formats/ qu'une fois validé par l'humain ; un 
 COMPTE (ICP, DA, handle)             01_BRAND/ACCOUNTS.md
   └─ ANGLE marketing (promesse, situation, hook, CTA)   01_BRAND/ANGLES.md
        └─ FORMAT validé (contenant, outil)              03_LIBRARY/formats/
-            └─ PRODUCTION (spec → fichiers → fiche EXP)  08_ACCOUNTS/<account>/posts/  ·  04_EXPERIMENTS/
+            └─ GABARIT = format × rendu × compte,        03_LIBRARY/gabarits/<F0x-rendu>/<compte>.md
+               fiche technique versionnée, validé sur 2 pilotes (onglet Formats)
+                 └─ CRÉA (spec → fichiers → fiche EXP)  08_ACCOUNTS/<account>/posts/  ·  04_EXPERIMENTS/  (gabarit + gabarit_version)
 ```
 
 ## Formats validés

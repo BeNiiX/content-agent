@@ -2,7 +2,7 @@
 name: templates
 description: Gabarits du projet vierge (workspace/), scripts pour créer une instance (new-project.sh) ou extraire le dépôt-modèle (make-template.sh), et procédure de mise à jour du framework dans une instance
 type: framework-doc
-updated: 2026-09-18
+updated: 2026-09-24
 ---
 
 # templates/ — framework réutilisable
@@ -12,13 +12,27 @@ envoi en brouillon TikTok, stats hebdo, tableau de bord). Il se compose de deux 
 
 | Couche | Contenu | Où ça vit |
 |---|---|---|
-| **Framework** (partagé entre apps) | `CLAUDE.md`, `README.md`, `.claude/skills/`, `00_AGENT/SOP/`, `00_AGENT/SCORING.md`, `00_AGENT/CREATIVE_FRAMEWORK.md`, `infra/` (code, scripts, polices), `deploy/`, `templates/`, `.gitignore`, `.gitattributes` | dépôt-modèle GitHub (« template repository ») ; se met à jour par `git merge` |
-| **Instance** (propre à une app) | `00_AGENT/MISSION.md`, `00_AGENT/PLAYBOOK.md`, `00_AGENT/REFERENCES/`, `01_BRAND/` … `08_ACCOUNTS/`, `infra/config/project.json`, `accounts.json`, `competitors.json`, `01_BRAND/DA/themes.json`, `infra/.env`, `infra/data/` | le dépôt de chaque app ; jamais touché par une mise à jour du framework |
+| **Framework** (partagé entre apps) | `CLAUDE.md`, `README.md`, `.claude/skills/`, `00_AGENT/SOP/`, `00_AGENT/SCORING.md`, `00_AGENT/CREATIVE_FRAMEWORK.md`, `03_LIBRARY/gabarits/README.md` + `_TEMPLATE_GABARIT.md` (cadre concept → format → gabarit → créa), `infra/` (code, scripts, polices, tableau de bord de validation), `deploy/` (dont les prompts des routines cloud), `templates/`, `.gitignore`, `.gitattributes` | dépôt-modèle GitHub (« template repository ») ; se met à jour par `git merge` |
+| **Instance** (propre à une app) | `00_AGENT/MISSION.md`, `00_AGENT/PLAYBOOK.md`, `00_AGENT/REFERENCES/`, `01_BRAND/` … `08_ACCOUNTS/` (dont les gabarits `03_LIBRARY/gabarits/<F0x-rendu>/<compte>.md`, `08_ACCOUNTS/<compte>/LEARNINGS.md`, `07_ASSETS/A_TRAITER.md`), `infra/config/project.json`, `accounts.json`, `competitors.json`, `01_BRAND/DA/themes.json`, `infra/.env`, `infra/data/` | le dépôt de chaque app ; jamais touché par une mise à jour du framework |
 
 Un **gabarit** est un fichier d'instance vidé de son contenu : même nom, même emplacement, même frontmatter YAML et mêmes sections
 que dans une instance vivante, avec des consignes courtes « comment remplir » (`<!-- Comment remplir : … -->`) et des placeholders explicites.
 Les scripts de `infra/` lisent ces fichiers (statuts des fiches EXP, sections de `QUEUE.md`, `accounts.json`, `themes.json`, `items.json`) :
 garder les noms de dossiers numérotés, les statuts `idée → à tourner → à monter → prêt → brouillon envoyé → publié` et les champs des fiches EXP.
+
+## Ce que le framework apporte (état au 24/09/2026)
+
+- **Tableau de bord de validation** (`npm run dashboard`, `infra/src/dashboard/`) : onglets Validation (créas à valider avec
+  textes modifiables et enregistrés automatiquement, commentaires, « à retoucher », refus ; carrousels réordonnables et photo
+  changeable ; créas vidéo en deux versions brute / avec voix), Formats (gabarits format × rendu × compte, fiche technique,
+  pilotes, page par format), Comptes (file réordonnable par glisser-déposer, planning des envois, réglages), Agent (heure de
+  l'envoi du soir, timers, routines), Assets (boîte de dépôt photos + vidéos, « à traiter »).
+- **Rien ne part sans validation humaine** (`validation: validé` dans la fiche EXP) ; **pas de créa hors gabarit validé**
+  (`03_LIBRARY/gabarits/README.md`).
+- **Routines cloud** (`deploy/routines/`) : `gabarits-quotidien` (boucle d'apprentissage des gabarits), `retours-quotidien`
+  (retouches demandées + learnings par compte), `production-specs`, `veille-hebdo`, `revue-hebdo`.
+- **Heure d'envoi** dans `infra/config/project.json` (`daily_hour`, `daily_minute`, `daily_enabled`), lue par la garde
+  `infra/src/publish/due.js` : modifiable depuis le tableau de bord sans root.
 
 ## `workspace/` — l'arborescence d'instance vierge
 

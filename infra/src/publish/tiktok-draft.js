@@ -1,23 +1,26 @@
 // Prépare un brouillon TikTok (carrousel photo ou vidéo) à partir d'une fiche expérience.
-// Le brouillon part via le connecteur TikTok de Higgsfield (Content Posting API côté créateur, mode UPLOAD_TO_DRAFT) :
-// rien n'est publié : le média arrive dans la boîte de réception de l'app TikTok du compte, on y ajoute textes + musique, et on poste.
+// Le brouillon part par l'API TikTok côté créateur (Content Posting API, mode brouillon) via le fournisseur choisi
+// dans .env (PUBLISH_BACKEND) : rien n'est publié : le média arrive dans la boîte de réception de l'app TikTok du
+// compte, on y ajoute textes + musique, et on poste.
 //
 // Usage : node src/publish/tiktok-draft.js EXP-015 [EXP-016 …] | --all [--json]
 //   --all   : toutes les fiches `status: prêt` de 04_EXPERIMENTS/ dont la plateforme inclut tiktok
 //   --json  : sort le job en JSON sur stdout (sinon récap lisible)
-// Sortie : data/publish/jobs/<EXP>.json = tout ce qu'il faut pour les appels MCP + la fiche « à saisir dans l'app ».
+// Sortie : data/publish/jobs/<EXP>.json = tout ce qu'il faut pour l'envoi + la fiche « à saisir dans l'app ».
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { CONTENT_ROOT } from "../lib/paths.js";
-import { readFrontmatter } from "../lib/md.js";
+import { readFrontmatter, fmValue } from "../lib/md.js";
 import { args, readJson, writeJson, today } from "../lib/fs.js";
 import { JOBS, jobPath, resolveAccount, accountsConfig } from "./lib.js";
+import { validationOf } from "./validation.js";
+import { chosenMedia, voicePath } from "../lib/variants.js";
 
 const EXPS = path.join(CONTENT_ROOT, "04_EXPERIMENTS");
 const LIMITS = { photoMaxBytes: 20 * 1024 * 1024, photoMax: 35, videoMaxBytes: 1024 ** 3, videoMinS: 3, videoMaxS: 600, fpsMin: 23, fpsMax: 60, minSide: 360, titleMax: 150 };
 
-const unq = (s) => (s === undefined ? undefined : String(s).replace(/\s+#.*$/, "").trim().replace(/^["']|["']$/g, ""));
+const unq = fmValue;   // lib/md.js : guillemets respectés, commentaire de fin retiré, "null" → null
 const jpegSize = (buf) => {
   if (buf[0] !== 0xff || buf[1] !== 0xd8) return null;
   let i = 2;
@@ -65,7 +68,10 @@ export function buildJob(exp) {
   if (!fs.existsSync(file)) throw new Error(`${exp} : fiche introuvable (${path.relative(CONTENT_ROOT, file)})`);
   const fm = Object.fromEntries(Object.entries(readFrontmatter(file)).map(([k, v]) => [k, unq(v)]));
   const body = fs.readFileSync(file, "utf8").replace(/^---[\s\S]*?---/, "");
-  const mediaRel = (fm.media_file || "").replace(/\s*\(.*\)$/, "").replace(/\/$/, "");
+  const baseRel = (fm.media_file || "").replace(/\s*\(.*\)$/, "").replace(/\/$/, "");
+  // Créa à deux versions (brute / avec voix, src/lib/variants.js) : on envoie celle choisie à la validation
+  const twoVersions = !!voicePath(baseRel) && fs.existsSync(path.resolve(CONTENT_ROOT, voicePath(baseRel)));
+  const mediaRel = chosenMedia(baseRel, fm.version);
   const media = path.resolve(CONTENT_ROOT, mediaRel);
   if (!mediaRel || !fs.existsSync(media)) throw new Error(`${exp} : media_file introuvable : ${mediaRel || "(vide)"}`);
   const isDir = fs.statSync(media).isDirectory();
@@ -105,6 +111,9 @@ export function buildJob(exp) {
     files.push({ path: media, filename: `${exp}${path.extname(media).toLowerCase()}`, ...info });
   }
   if (!/tiktok/i.test(fm.platform || "tiktok")) problems.push(`platform = ${fm.platform} (pas tiktok)`);
+  if (twoVersions && !fm.version) problems.push("deux versions (brute / avec voix) : choisir celle à envoyer dans le tableau de bord (onglet Validation)");
+  const validation = validationOf(fm);
+  if (validation !== "validated") problems.push(validation === "retouch" ? `créa à retoucher (en attente de l'agent)${fm.validation_note ? ` : ${fm.validation_note}` : ""}` : validation === "refused" ? `créa refusée à la validation${fm.validation_note ? ` : ${fm.validation_note}` : ""}` : "créa non validée : à valider dans le tableau de bord (onglet Validation) avant tout envoi");
 
   const postsFile = [path.join(accountDir, "POSTS.md"), path.join(accountDir, "Carousels", "POSTS.md")].find((f) => fs.existsSync(f));
   const textesFile = path.join(accountDir, "TEXTES.md");
@@ -115,15 +124,17 @@ export function buildJob(exp) {
   if (!caption) { caption = genericCaption(accountDir); caption_source = "README.md du tournage (générique, [question] à remplacer)"; }
   if (!caption) { caption = fm.hook || ""; caption_source = "hook (aucune caption écrite)"; }
   if (caption_source !== "fiche EXP" && caption_source !== "POSTS.md") problems.push(`caption non spécifique (${caption_source}) → l'écrire dans la fiche EXP : « Caption : « … » »`);
-  const front = posts?.match(/\*\*(?:Front page|Texte natif)[^\n]*\n\n>\s*(.+)/)?.[1] || null;
+  const frontRaw = fm.front_page_text || posts?.match(/\*\*(?:Front page|Texte natif)[^\n]*\n\n>\s*(.+)/)?.[1] || null;
+  // texte natif tel qu'il sera tapé : sans le gras markdown ni les annotations de production (« ← ligne 1, grosse… »)
+  const front = frontRaw ? frontRaw.replace(/\*\*/g, "").replace(/\s+←.*$/, "").trim() : null;
   // Titre TikTok : carrousel = accroche courte (hook sans annotations de production) ; vidéo = la caption elle-même
   // (TikTok n'a qu'un champ « title » pour les vidéos). Coupé à 150 caractères sur un mot ; la caption complète reste dans description.
   const cleanHook = (fm.hook || "").replace(/\s*\([^)]*\)/g, "").replace(/\s*\+\s.*$/, "").trim();
   const cut = (t) => (t.length <= LIMITS.titleMax ? t : t.slice(0, LIMITS.titleMax).replace(/\s+\S*$/, ""));
   // RÈGLE (décision du 17/09/2026 après 3 brouillons reçus — détail dans src/publish/README.md § « Champs titre / description ») :
-  // pour un carrousel, seul le paramètre `title` du connecteur arrive dans l'app, et il atterrit dans le champ DESCRIPTION
+  // pour un carrousel, seule la caption envoyée arrive dans l'app, et elle atterrit dans le champ DESCRIPTION
   // de l'éditeur photo ; le champ Titre reste vide quoi qu'on envoie. Donc on envoie UNIQUEMENT la description
-  // (phrase fixe du compte, config/accounts.json → carousel_description) via `title`, et le titre se tape dans l'app.
+  // (phrase fixe du compte, config/accounts.json → carousel_description) comme caption, et le titre se tape dans l'app.
   // Vidéo : `title` = caption (TikTok n'a qu'un champ).
   const accountCfg = accountsConfig().accounts[fm.account] || {};
   const hookTitle = cut(fm.tiktok_title || cleanHook || caption);
@@ -133,10 +144,11 @@ export function buildJob(exp) {
   if (!fm.account) problems.push("fiche sans champ `account` : préciser le slug (01_BRAND/ACCOUNTS.md)");
   else if (account.unknown) problems.push(`compte ${fm.account} inconnu dans infra/config/accounts.json`);
   else if (account.paused) problems.push(`compte ${account.slug} (${account.handle}) en pause : rien à envoyer`);
-  else if (!account.connector_id) problems.push(`compte ${account.slug} (${account.handle}, ${account.device}) : pas de connector_id → tiktok_connect name "${accountsConfig().accounts[account.slug]?.connector_name}" depuis cet appareil, puis accounts.json`);
+  else if (!account.backend) problems.push("PUBLISH_BACKEND absent de infra/.env : aucun fournisseur d'envoi choisi");
+  else if (!account.account_id) problems.push(`compte ${account.slug} (${account.handle}, ${account.device}) : pas de ${account.backend}_account_id dans infra/config/accounts.json → node src/publish/daily-send.js --connect-url ${account.slug} (lien à ouvrir depuis cet appareil) puis --accounts`);
   const job = {
-    exp, status_fiche: fm.status || null, concept: fm.concept || null, created: today(),
-    account: account.slug, account_handle: account.handle, connector_id: account.connector_id,
+    exp, status_fiche: fm.status || null, validation, version: twoVersions ? fm.version || null : null, concept: fm.concept || null, created: today(),
+    account: account.slug, account_handle: account.handle, backend: account.backend, account_id: account.account_id,
     mode: "UPLOAD_TO_DRAFT", media_type, photo_cover_index: media_type === "PHOTO" ? 0 : undefined,
     title, description, caption_source, is_aigc: media_type === "VIDEO" && /p\d/.test(fm.photo || "") ? true : false,
     media_dir: path.relative(CONTENT_ROOT, media), files, problems, ok: problems.length === 0,
@@ -146,13 +158,12 @@ export function buildJob(exp) {
       posts_md: posts ? path.relative(CONTENT_ROOT, postsFile) : null,
       sheet: textes || posts || null,
     },
-    mcp: {
-      "1_media_upload": { files: files.map((f) => ({ filename: f.filename, content_type: f.content_type })) },
-      "2_put": `node src/publish/higgsfield-put.js ${exp} data/publish/jobs/${exp}.presigned.json`,
-      "3_media_confirm": { type: media_type === "PHOTO" ? "image" : "video", media_ids: "← data/publish/jobs/" + exp + ".uploaded.json" },
-      "4_tiktok_prepare_publish": { connector_id: account.connector_id || "← tiktok_connect puis config/accounts.json", mode: "UPLOAD_TO_DRAFT", media_type, title, ...(description ? { description } : { _note: "carrousel : pas de description, elle serait perdue ; le titre se tape dans l'app" }), ...(media_type === "PHOTO" ? { photo_images: "← URLs Higgsfield dans l'ordre des files", photo_cover_index: 0 } : { video_url: "← URL Higgsfield" }) },
-      "5_tiktok_publish": { mode: "UPLOAD_TO_DRAFT", user_confirmed: true, preview_confirmed: true, is_aigc: "selon job.is_aigc", "+": "toutes les required_confirmations du prepare" },
-      "6_mark": `node src/publish/mark-draft.js ${exp} --publish-id <publish_id>`,
+    send: {
+      "1_plan": "node src/publish/daily-plan.js   (le plan du jour prend le premier contenu `prêt` du compte dans 06_CALENDAR/QUEUE.md)",
+      "2_send": `node src/publish/daily-send.js [--exp ${exp}]   (backend ${account.backend || "← PUBLISH_BACKEND de .env"}, compte ${account.account_id || `← ${account.backend || "<backend>"}_account_id de config/accounts.json`})`,
+      "3_files": files.map((f) => ({ filename: f.filename, content_type: f.content_type })),
+      "4_caption": media_type === "PHOTO" ? { caption: title, _note: "carrousel : la caption atterrit dans la description de l'éditeur photo ; le titre se tape dans l'app" } : { caption: title },
+      "5_mark": `automatique (daily-result.js → mark-draft.js) ; à la main : node src/publish/mark-draft.js ${exp} --publish-id <publish_id>`,
     },
   };
   return job;
@@ -174,7 +185,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       if (!a.json) {
         console.log(`${job.ok ? "✓" : "✗"} ${id} · ${job.media_type} · ${job.files.length} fichier(s) · ${job.media_dir} · compte ${job.account}${job.account_handle ? " (" + job.account_handle + ")" : ""}`);
         console.log(`   titre : ${job.title}`);
-        if (job.media_type === "PHOTO") { console.log(`   description envoyée (paramètre title du connecteur) : ${job.title}`); console.log(`   titre à taper dans l'app : ${job.in_app.tiktok_title_field}`); }
+        if (job.media_type === "PHOTO") { console.log(`   description envoyée (caption du post) : ${job.title}`); console.log(`   titre à taper dans l'app : ${job.in_app.tiktok_title_field}`); }
         else console.log(`   title (= caption vidéo) : ${job.title}`);
         if (job.in_app.front_page_text) console.log(`   texte front page (à écrire dans l'app) : ${job.in_app.front_page_text}`);
         if (job.in_app.textes_md) console.log(`   textes à saisir : ${job.in_app.textes_md} (section ${id})`);
@@ -185,5 +196,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     } catch (e) { console.error(`✗ ${id} : ${e.message}`); out.push({ exp: id, ok: false, problems: [e.message] }); }
   }
   if (a.json) console.log(JSON.stringify(out.length === 1 ? out[0] : out, null, 2));
-  else console.log(`\nJobs dans ${path.relative(process.cwd(), JOBS)}/ — étape suivante : media_upload (MCP Higgsfield) puis higgsfield-put.js, voir src/publish/README.md`);
+  else console.log(`\nJobs dans ${path.relative(process.cwd(), JOBS)}/ — étape suivante : node src/publish/daily-plan.js puis node src/publish/daily-send.js, voir src/publish/README.md`);
 }

@@ -1,4 +1,4 @@
-// Enregistre le résultat d'un envoi du plan du jour (appelé par la session Claude headless après chaque tiktok_publish_status).
+// Enregistre le résultat d'un envoi du plan du jour (appelé par daily-send.js après chaque soumission / confirmation).
 // Usage : node src/publish/daily-result.js EXP-070 --status sent|failed --publish-id <id> [--reason texte] [--date AAAA-MM-JJ]
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -18,7 +18,7 @@ it.reason = a.reason || null;
 it.finished_at = new Date().toISOString();
 writeJson(planFile, plan);
 if (it.status === "sent" && it.publish_id) {
-  const r = spawnSync(process.execPath, [path.join(path.dirname(new URL(import.meta.url).pathname), "mark-draft.js"), exp, "--publish-id", it.publish_id, "--connector", it.connector_id], { encoding: "utf8" });
+  const r = spawnSync(process.execPath, [path.join(path.dirname(new URL(import.meta.url).pathname), "mark-draft.js"), exp, "--publish-id", it.publish_id], { encoding: "utf8" });
   process.stdout.write(r.stdout || ""); if (r.status !== 0) console.error(r.stderr);
 }
 console.log(`✓ plan ${date} : ${exp} → ${it.status}${it.reason ? " (" + it.reason + ")" : ""}`);

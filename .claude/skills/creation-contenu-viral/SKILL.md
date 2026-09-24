@@ -51,6 +51,16 @@ de la profondeur et de la lumière chaude (voir `03_LIBRARY/PROMPTS_IMAGES.md`).
   montrer un chiffre surprenant (seuils dans `APP_CONTEXT.md` § Banque).
 - Pertinence > beauté : un sujet qui touche le spectateur (taguable, son quotidien) bat une belle image.
 
+## 3 bis. Se faire comprendre par quelqu'un qui ne connaît pas l'app
+
+Le spectateur n'a jamais ouvert l'app et ne connaît pas le vocabulaire de l'unité de contenu (voir `vocabulary` de `infra/config/project.json` : nom de l'unité, catégories propres à l'app). Trois règles :
+
+- **Le hook ne repose jamais sur un mot interne.** Une question qui utilise un mot propre à l'app (le nom d'une catégorie, d'un mode de jeu) ne veut rien dire hors de l'app. Dire ce qu'on voit : « Laquelle a le moins de gens d'accord ? », « 3 avis que presque personne ne partage ». Le mot de marque reste sur les visuels de l'app et dans les hashtags.
+- **La mécanique est expliquée dans le contenu, en une phrase, dès le début.** Carrousel : une 2e ligne de texte natif sous le hook (« D'accord ou pas ? Le vrai % des joueurs est sur la slide d'après »). Vidéo : la bulle 2 cite **l'unité de contenu en toutes lettres** puis donne la règle (« “X” : d'accord ou pas, chacun swipe »), et la bulle verdict donne le chiffre **et** de quel côté est la personne filmée (« 61 % sont d'accord. Lui, il est dans les 39 % »).
+- **Le hook POV nomme une situation ou une personne, pas le produit.** « Pov : tu dis que le tennis c'est long et chiant », « Tague le pote qui se dit sportif », « Pov : la mi-temps s'éternise, tu sors ça » — pas « Pov : tu as trouvé le jeu ultime de X ». Un même hook produit répété sur toutes les vidéos ne raconte rien et ne se partage pas.
+
+Test à faire avant de rendre : **couper le son et lire les 6 premières secondes comme si on ne connaissait rien** — sait-on ce qui se passe, ce qu'on attend de nous, et pourquoi c'est drôle ou clivant ?
+
 ## 4. CTA
 
 - **Un CTA à la fin de chaque vidéo** (dernière bulle : « Dis-le en commentaire », « Tague ton pote qui… »).
@@ -60,6 +70,8 @@ de la profondeur et de la lumière chaude (voir `03_LIBRARY/PROMPTS_IMAGES.md`).
 ## 5. Checklist avant publication (à cocher dans la fiche EXP)
 
 - [ ] Hook visuel lisible sans le son en 1 s (bandeau noir, ≤ 8 mots, image qui raconte la promesse)
+- [ ] Compréhensible sans connaître l'app : aucun mot interne dans le hook, mécanique expliquée en une phrase dès le début (§ 3 bis)
+- [ ] La promesse du hook est tenue par le contenu (famille de hook ↔ contrainte sur les chiffres, cf. doc d'instance)
 - [ ] Format déjà validé (format `gagnant` ou source à outlier ≥ 3) ou test assumé dans la fiche EXP
 - [ ] Une idée par vidéo, un chiffre surprenant
 - [ ] Texte hors zone d'interface (pas dans les 15 % du bas), police grasse ; si visage : sous-titres sous le menton

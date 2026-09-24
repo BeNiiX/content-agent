@@ -18,6 +18,8 @@
 07_ASSETS/photos/_backup-fichiers-origine/
 07_ASSETS/photos/_inbox/*
 !07_ASSETS/photos/_inbox/README.md
+07_ASSETS/_inbox/*
+!07_ASSETS/_inbox/README.md
 07_ASSETS/legacy/
 08_ACCOUNTS/*/posts/**/*.mp4
 08_ACCOUNTS/*/posts/**/*.mov

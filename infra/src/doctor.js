@@ -27,21 +27,21 @@ if (fs.existsSync(PY)) {
   ok(!r.error && r.status === 0, `.venv/bin/python + Pillow ${r.status === 0 ? String(r.stdout).trim() : ""}`, ".venv/bin/pip install pillow");
 } else ok(false, ".venv/bin/python (rendu des carrousels / vidéos)", "python3 -m venv .venv && .venv/bin/pip install pillow");
 
-// ---- Session Claude Code (envoi du soir : claude -p + connecteur Higgsfield) ----
+// ---- Session Claude Code (revues headless : daily-stats.sh avec WEEKLY_CLAUDE=1, routines cloud) ----
 const claudeBin = (sh("which", ["claude"]).stdout || "").trim();
-if (!claudeBin) info("claude (CLI) introuvable : l'envoi du soir (daily-drafts.sh) et les revues headless ne peuvent pas tourner ici — installation : https://claude.ai/install.sh (VPS : deploy/install.sh)");
+if (!claudeBin) info("claude (CLI) introuvable : les revues headless ne peuvent pas tourner ici (l'envoi du soir n'en a pas besoin) — installation : https://claude.ai/install.sh (VPS : deploy/install.sh)");
 else {
   const r = sh("claude", ["auth", "status"], { timeout: 15000 });
   let st = null; try { st = JSON.parse(r.stdout || ""); } catch { st = null; }
   const desc = st ? `${st.loggedIn ? "connecté" : "non connecté"}${st.authMethod ? " · " + st.authMethod : ""}${st.subscriptionType ? " · " + st.subscriptionType : ""}` : `${r.stdout || ""}${r.stderr || ""}`.trim().split("\n")[0].slice(0, 80);
   if (r.error) info(`claude auth status : impossible à exécuter (${r.error.code || r.error.message})`);
-  else ok(r.status === 0 && (!st || st.loggedIn !== false), `session Claude Code : ${desc}${st && st.authMethod && st.authMethod !== "claude.ai" ? " (connecteur Higgsfield indisponible hors session claude.ai : unset ANTHROPIC_API_KEY)" : ""}`, "claude auth login (VPS : sudo -iu <user> claude auth login, deploy/README.md § Étape 4)");
+  else ok(r.status === 0 && (!st || st.loggedIn !== false), `session Claude Code : ${desc}${st && st.authMethod && st.authMethod !== "claude.ai" ? " (hors session claude.ai : facturation à l'usage, unset ANTHROPIC_API_KEY)" : ""}`, "claude auth login (VPS : sudo -iu <user> claude auth login, deploy/README.md § Étape 4)");
 }
 
 // ---- Fichiers de configuration ----
 ok(fs.existsSync(path.join(INFRA_ROOT, ".env")), ".env présent", "cp .env.example .env");
 ok(fs.existsSync(path.join(INFRA_ROOT, "config", "project.json")), `config/project.json (instance : ${project().name}, slug ${project().slug})`, "à créer, schéma dans config/README.md — valeurs neutres utilisées");
-ok(fs.existsSync(path.join(INFRA_ROOT, "config", "accounts.json")), "config/accounts.json (comptes TikTok et connecteurs)", "à créer depuis config/accounts.json.example — aucun brouillon possible sans compte");
+ok(fs.existsSync(path.join(INFRA_ROOT, "config", "accounts.json")), "config/accounts.json (comptes TikTok et identifiants chez le fournisseur d'envoi)", "à créer depuis config/accounts.json.example — aucun brouillon possible sans compte");
 ok(fs.existsSync(path.join(INFRA_ROOT, "..", "01_BRAND", "DA", "themes.json")), "01_BRAND/DA/themes.json (thèmes des cartes)", "absent : thème default neutre construit depuis project.json");
 for (const [k, use] of [["NOTIFY_CHANNEL", "notification de l'envoi du soir (ntfy | telegram | imessage)"], ["TIKTOK_ADS_ACCESS_TOKEN", "rapports / budgets TikTok Ads"], ["TIKTOK_ADVERTISER_ID", "rapports / budgets TikTok Ads"], ["IG_ACCESS_TOKEN", "publication Instagram"], ["IG_USER_ID", "publication Instagram"], ["SUPABASE_URL", `banque ${/^[aeiouyhéèêàâîôû]/i.test(t("item_plural")) ? "d'" : "de "}${t("item_plural")}`]]) ok(!!env(k), `${k} (${use})`, "optionnel, à remplir dans .env");
 
@@ -54,6 +54,11 @@ const pending = fs.existsSync(inbox) ? fs.readdirSync(inbox).filter((f) => /\.(j
 if (pending) info(`Photos à trier : ${pending} dans 07_ASSETS/photos/_inbox/ → .venv/bin/python scripts/photos-inbox.py`);
 
 // ---- Brouillons TikTok ----
+const be = env("PUBLISH_BACKEND");
+const accCfg = readJson(path.join(INFRA_ROOT, "config", "accounts.json"), { accounts: {} }) || { accounts: {} };
+const withId = Object.entries(accCfg.accounts || {}).filter(([, a]) => a[`${be}_account_id`] && !a.paused).length;
+const active = Object.values(accCfg.accounts || {}).filter((a) => !a.paused).length;
+ok(!!be && !!env(`${(be || "").toUpperCase()}_API_KEY`) && withId > 0, `backend de publication : ${be || "ABSENT"}${be ? ` · clé ${env(`${be.toUpperCase()}_API_KEY`) ? "OK" : "MANQUANTE"} · ${withId}/${active} compte(s) avec ${be}_account_id` : ""}`, "PUBLISH_BACKEND + <BACKEND>_API_KEY dans .env, ids via node src/publish/daily-send.js --accounts");
 const jobsDir = path.join(DATA, "publish", "jobs");
 const jobs = listJson(jobsDir).filter((p) => /EXP-\d+\.json$/.test(p)).map((p) => readJson(p)).filter(Boolean);
 if (jobs.length) info(`Brouillons TikTok : ${jobs.length} job(s) · ${jobs.filter((j) => j.sent?.draft_sent_at).length} envoyé(s) · ${jobs.filter((j) => !j.ok).length} avec problème(s) — connexion du compte : src/publish/CONNEXION_TIKTOK.md`);

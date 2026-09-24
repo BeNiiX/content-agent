@@ -51,8 +51,10 @@ def center(d, t, f, cy, fill=TXT, cx=W / 2):
     bb = d.textbbox((0, 0), t, font=f); w = (bb[2] - bb[0]) / SS; h = (bb[3] - bb[1]) / SS
     d.text((S(cx - w / 2) - bb[0], S(cy - h / 2) - bb[1]), t, font=f, fill=fill)
 def wrap(d, text, f, maxw):
+    """Retour à la ligne sur les espaces simples seulement : une espace insécable (U+00A0, « 2 fois\u00a0? ») garde le mot et sa ponctuation ensemble."""
     lines, line = [], ""
-    for w in text.split():
+    for w in text.split(" "):
+        if not w: continue
         t = (line + " " + w).strip()
         if text_w(d, t, f) <= maxw: line = t
         else: lines.append(line); line = w

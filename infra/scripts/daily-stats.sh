@@ -1,12 +1,12 @@
 #!/bin/bash
-# Relevé hebdo des comptes TikTok : pull (yt-dlp + pages publiques) → report (STATS.md par compte, digest, fiches EXP).
-# Planifié sur le VPS par systemd (deploy/systemd/content-weekly-stats.timer, jour / heure = weekly_stats de config/project.json ; la veille
-# content-weekly-veille tourne une heure avant) — ou launchd sur un Mac (scripts/launchd/make-plists.js) — ou à la main : bash scripts/weekly-stats.sh
+# Relevé quotidien des comptes TikTok : pull (yt-dlp + pages publiques) → report (STATS.md par compte, digest, fiches EXP).
+# Planifié sur le VPS par systemd (deploy/systemd/content-daily-stats.timer, heure = stats_hour de config/project.json ; la veille
+# content-weekly-veille tourne une heure avant) — ou launchd sur un Mac (scripts/launchd/make-plists.js) — ou à la main : bash scripts/daily-stats.sh
 # Option : WEEKLY_CLAUDE=1 → enchaîne une revue Claude Code headless (annotation du digest), voir README.
 set -u
 cd "$(dirname "$0")/.." || exit 1
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
-LOG="data/accounts/weekly.log"; mkdir -p data/accounts
+LOG="data/accounts/daily-stats.log"; mkdir -p data/accounts
 {
   echo "=== $(date '+%F %T') relevé hebdo"
   node src/accounts/pull.js --n 60 --media

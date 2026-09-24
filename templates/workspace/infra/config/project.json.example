@@ -8,8 +8,10 @@
   "default_language": "fr",
   "markets": ["FR"],
   "timezone": "Europe/Paris",
+  "daily_enabled": true,
   "daily_hour": 18,
-  "weekly_stats": { "weekday": 1, "hour": 8 },
+  "stats_hour": 7,
+  "weekly_veille": { "weekday": 1, "hour": 6 },
   "vocabulary": {
     "item": { "fr": "{{ITEM}}", "en": "{{ITEM}}" },
     "item_plural": { "fr": "{{ITEM_PLURAL}}", "en": "{{ITEM_PLURAL}}" },

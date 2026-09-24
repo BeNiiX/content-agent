@@ -12,7 +12,7 @@
 #   /media/08_ACCOUNTS/… fichiers de <APP_DIR>/08_ACCOUNTS (lecture seule, auth basique)   ─┘ que sert le tableau de bord
 #   /media/…             tout le reste (02_VEILLE/assets, 01_BRAND/DA) → tableau de bord (qui restreint lui-même)
 #   /                    tableau de bord 127.0.0.1:4747 (auth basique)
-#   /public-media/<MEDIA_TOKEN>/07_ASSETS|08_ACCOUNTS/…  sans auth, seulement si MEDIA_PUBLIC=true (pour Higgsfield media_import_url, qui a besoin d'une URL sans auth)
+#   /public-media/<MEDIA_TOKEN>/07_ASSETS|08_ACCOUNTS/…  sans auth, seulement si MEDIA_PUBLIC=true (utile si un fournisseur exige une URL publique pour récupérer un média)
 
 {$DOMAIN:localhost} {
 	encode zstd gzip

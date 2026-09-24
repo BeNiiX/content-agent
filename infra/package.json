@@ -16,7 +16,6 @@
     "sync": "bash scripts/sync.sh",
     "ads:report": "node src/ads/tiktok-report.js",
     "draft": "node src/publish/tiktok-draft.js",
-    "draft:put": "node src/publish/higgsfield-put.js",
     "draft:mark": "node src/publish/mark-draft.js",
     "doctor": "node src/doctor.js",
     "dashboard": "node src/dashboard/server.js",

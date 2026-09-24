@@ -16,6 +16,6 @@ echo "session Claude INVALIDE ou expirée : $out"
 # une notification par jour au plus
 if [ ! -f "$STAMP" ] || [ "$(cat "$STAMP")" != "$(date +%F)" ]; then
   date +%F > "$STAMP"
-  (cd "$INFRA" && node src/publish/daily-notify.js --test "Session Claude expirée sur le VPS : l'envoi du soir échouera. ssh puis : sudo -iu content claude auth login") || true
+  (cd "$INFRA" && node src/publish/daily-notify.js --alert "Session Claude expirée sur le VPS : l'envoi du soir échouera. ssh puis : sudo -iu content claude auth login") || true
 fi
 exit 1

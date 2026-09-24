@@ -31,16 +31,16 @@ Demandes classées par importance pour le VPS. État au 18/09/2026 : les points 
 
 4. **fait** (systemd sous Linux : `list-timers` + `show -p ExecMainStatus`) — **`infra/src/dashboard/state.js`** `schedule()` — lisait les plists launchd et `launchctl print` ; sur le VPS l'onglet
    « Ce soir » affichera « non installé ». Proposition : si `process.platform === "linux"`, lire
-   `systemctl list-timers --output=json content-daily-drafts.timer content-weekly-stats.timer` (ou `systemctl show -p
+   `systemctl list-timers --output=json content-daily-drafts.timer content-daily-stats.timer` (ou `systemctl show -p
    NextElapseUSecRealtime,LastTriggerUSec,Result <unit>`) et exposer `{ installed, next, last_exit }` avec la même forme.
 
-5. **`infra/scripts/daily-drafts.sh` / `weekly-stats.sh`** — rien à corriger pour Linux (relus : bash, `date +%F`,
+5. **`infra/scripts/daily-drafts.sh` / `daily-stats.sh`** — rien à corriger pour Linux (relus : bash, `date +%F`,
    `sed`, `grep`, `node`, `claude`). Deux remarques non bloquantes :
    - `daily-plan.js` date le plan avec `today()` = date **UTC** (`toISOString`), le script avec `date +%F` (fuseau du
      service, Europe/Paris). À 18:00 Paris les deux coïncident ; un lancement manuel entre 00:00 et 02:00 Paris
      produirait deux dates différentes (plan de la veille UTC, journal du jour). Proposition : `today()` en local
      (`new Date().toLocaleDateString("sv-SE")`), ou la même source pour les deux.
-   - `weekly-stats.sh` avec `WEEKLY_CLAUDE=1` lance `claude -p` avec `--allowedTools "Read,Edit,Write,Bash(node:*),Glob,Grep"`
+   - `daily-stats.sh` avec `WEEKLY_CLAUDE=1` lance `claude -p` avec `--allowedTools "Read,Edit,Write,Bash(node:*),Glob,Grep"`
      : OK sur le VPS (session claude.ai). Si la routine cloud `revue-hebdo` est active, laisser `WEEKLY_CLAUDE` à 0 pour
      ne pas annoter deux fois.
 
@@ -76,7 +76,7 @@ Demandes classées par importance pour le VPS. État au 18/09/2026 : les points 
     renvoi à `deploy/README.md` (timers systemd, `journalctl`, `systemctl start content-daily-drafts`) et noter que le
     tableau de bord est aussi servi par Caddy.
 11. **fait** — **`00_AGENT/SOP/SOP_04_PRODUIRE_ET_PUBLIER.md`** § « Envoi automatique du soir » et **`SOP_06`** § « Relevé
-    automatique du lundi » — « launchd » → « VPS (systemd) », « Mac éteint » → « VPS : `journalctl -u content-weekly-stats` ».
+    automatique du lundi » — « launchd » → « VPS (systemd) », « Mac éteint » → « VPS : `journalctl -u content-daily-stats` ».
 12. **`CLAUDE.md`** (carte du projet) — ajouter la ligne `deploy/` : « runtime VPS, routines cloud, scripts de synchro
     (propriétaire : agent déploiement) » ; et **`README.md`** racine (arborescence).
 13. **fait** (`cloud_routines: auto` + commentaire VPS) — **`00_AGENT/MISSION.md`** — le commentaire du champ `autonomy.daily_drafts` décrit l'envoi du soir comme un script du

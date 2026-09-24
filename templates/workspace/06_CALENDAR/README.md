@@ -2,7 +2,7 @@
 
 - `QUEUE.md` : file de publication par compte (ordre = ordre d'envoi de l'automate du soir).
 - `<AAAA-MM>.md` : un fichier par mois, mémo hebdo en tête (SOP_06) + grille des jours.
-- `stats/<date>.md` : relevé hebdo généré par `infra/src/accounts/report.js` (jour et heure de `weekly_stats`, timer systemd `content-weekly-stats` sur le VPS), à annoter sous le marqueur `notes-agent`.
+- `stats/<date>.md` : relevé hebdo généré par `infra/src/accounts/report.js` (jour et heure de `weekly_stats`, timer systemd `content-daily-stats` sur le VPS), à annoter sous le marqueur `notes-agent`.
 
 Modèle de mémo hebdo (≤ 15 lignes) :
 

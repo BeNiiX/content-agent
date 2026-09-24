@@ -1,5 +1,6 @@
 // Trace l'envoi d'un brouillon TikTok : fiche EXP (frontmatter) + ligne de 06_CALENDAR/QUEUE.md.
-// Usage : node src/publish/mark-draft.js EXP-015 --publish-id <id> [--connector <id>] [--posted]  (--posted : l'humain a posté depuis l'app → status publié, à compléter avec post_url)
+// Usage : node src/publish/mark-draft.js EXP-015 --publish-id <id> [--posted]  (--posted : l'humain a posté depuis l'app → status publié, à compléter avec post_url)
+// `tiktok_publish_id` = identifiant renvoyé par le fournisseur d'envoi, préfixé par son nom (ex. « postforme:<post>/<publish_id TikTok> »).
 import fs from "node:fs";
 import path from "node:path";
 import { CONTENT_ROOT } from "../lib/paths.js";
@@ -14,7 +15,7 @@ if (!fs.existsSync(file)) { console.error(`${file} introuvable`); process.exit(1
 const status = a.posted ? "publié" : "brouillon envoyé";
 const set = { status, updated: today() };
 if (a.posted) { set.published_at = today(); if (a["post-url"]) set.post_url = a["post-url"]; }
-else { const prev = (fs.readFileSync(file, "utf8").match(/^tiktok_publish_id:\s*(.+)$/m) || [])[1]?.trim(); const prevAt = (fs.readFileSync(file, "utf8").match(/^draft_sent_at:\s*"?([^"\n]+)"?$/m) || [])[1]; set.draft_sent_at = prev && a["publish-id"] && prev === String(a["publish-id"]) && prevAt ? prevAt : new Date().toISOString(); if (a["publish-id"]) set.tiktok_publish_id = String(a["publish-id"]); if (a.connector) set.tiktok_connector_id = String(a.connector); }
+else { const prev = (fs.readFileSync(file, "utf8").match(/^tiktok_publish_id:\s*(.+)$/m) || [])[1]?.trim(); const prevAt = (fs.readFileSync(file, "utf8").match(/^draft_sent_at:\s*"?([^"\n]+)"?$/m) || [])[1]; set.draft_sent_at = prev && a["publish-id"] && prev === String(a["publish-id"]) && prevAt ? prevAt : new Date().toISOString(); if (a["publish-id"]) set.tiktok_publish_id = String(a["publish-id"]); }
 
 let md = fs.readFileSync(file, "utf8");
 const [, fm, rest] = md.match(/^---\n([\s\S]*?)\n---([\s\S]*)$/) || [];

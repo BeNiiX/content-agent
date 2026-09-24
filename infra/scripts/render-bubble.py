@@ -21,7 +21,8 @@ def load(size):
 f = load(a.size)
 tmp = ImageDraw.Draw(Image.new("RGBA", (W, 10)))
 lines, line = [], ""
-for w in a.text.split():
+for w in a.text.split(" "):   # espaces simples seulement : une espace insécable (U+00A0) garde « combien ? » ensemble
+    if not w: continue
     t = (line + " " + w).strip()
     if tmp.textlength(t, font=f) <= a.maxw: line = t
     else: lines.append(line); line = w

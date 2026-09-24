@@ -17,7 +17,9 @@ export const DEFAULTS = {
   markets: [],
   timezone: "Europe/Paris",
   daily_hour: 18,
-  weekly_stats: { weekday: 1, hour: 8 },
+  daily_minute: 0,
+  stats_hour: 7,                          // relevé quotidien des comptes (heure locale)
+  weekly_veille: { weekday: 1, hour: 6 }, // veille hebdo (1 = lundi)
   vocabulary: {
     item: { fr: "carte", en: "card" },
     item_plural: { fr: "cartes", en: "cards" },
@@ -41,7 +43,8 @@ export function project() {
   if (cache && cache.mtime === mtime) return cache.value;
   let raw = {};
   if (mtime) { try { raw = JSON.parse(fs.readFileSync(PROJECT_FILE, "utf8")); } catch (e) { console.error(`config/project.json illisible : ${e.message}`); } }
-  const value = { ...DEFAULTS, ...raw, vocabulary: { ...DEFAULTS.vocabulary, ...(raw.vocabulary || {}) }, weekly_stats: { ...DEFAULTS.weekly_stats, ...(raw.weekly_stats || {}) } };
+  const value = { ...DEFAULTS, ...raw, vocabulary: { ...DEFAULTS.vocabulary, ...(raw.vocabulary || {}) }, weekly_veille: { ...DEFAULTS.weekly_veille, ...(raw.weekly_veille || raw.weekly_stats || {}) } };
+  if (raw.weekly_stats && raw.stats_hour === undefined) value.stats_hour = raw.weekly_stats.hour ?? value.stats_hour;   // compat anciennes configs
   value.notify_title = value.notify_title || value.name;
   cache = { mtime, value };
   return value;

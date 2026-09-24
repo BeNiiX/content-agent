@@ -29,8 +29,9 @@ const plist = ({ label, script, calendar, log }) => `<?xml version="1.0" encodin
 </plist>
 `;
 const jobs = [
-  { label: scheduledLabel("daily-drafts"), script: "daily-drafts.sh", calendar: [["Hour", p.daily_hour], ["Minute", 0]], log: "publish/daily" },
-  { label: scheduledLabel("weekly-stats"), script: "weekly-stats.sh", calendar: [["Weekday", p.weekly_stats.weekday], ["Hour", p.weekly_stats.hour], ["Minute", 0]], log: "accounts" },
+  { label: scheduledLabel("daily-drafts"), script: "daily-drafts.sh", calendar: [["Hour", p.daily_hour], ["Minute", p.daily_minute ?? 0]], log: "publish/daily" },
+  { label: scheduledLabel("daily-stats"), script: "daily-stats.sh", calendar: [["Hour", p.stats_hour], ["Minute", 0]], log: "accounts" },
+  { label: scheduledLabel("weekly-veille"), script: "weekly-veille.sh", calendar: [["Weekday", p.weekly_veille.weekday], ["Hour", p.weekly_veille.hour], ["Minute", 0]], log: "veille" },
 ];
 for (const f of fs.readdirSync(DIR)) if (f.endsWith(".plist") && !jobs.some((j) => f === j.label + ".plist")) { fs.unlinkSync(path.join(DIR, f)); console.log(`- ${f} (ancien label supprimé)`); }
 for (const j of jobs) { fs.writeFileSync(path.join(DIR, j.label + ".plist"), plist(j)); console.log(`→ scripts/launchd/${j.label}.plist`); }

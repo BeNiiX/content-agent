@@ -4,15 +4,24 @@
 //  - segments : temps dans le screen-record (s). freezeStart/freezeEnd : secondes de gel de la 1re / dernière image.
 //  - bubbles : dans l'ordre. `at` = début dans la timeline finale (défaut : enchaînement), `dur` = durée min ; si TTS plus long, la bulle est prolongée.
 import fs from "node:fs";
+import { ttsFor } from "../lib/variants.js";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { INFRA_ROOT } from "../lib/paths.js";
 
-const RAW = process.argv.includes("--raw");
-const specPath = process.argv.slice(2).find((x) => !x.startsWith("--"));
-if (!specPath) { console.error("Usage : node src/produce/pov.js spec.json"); process.exit(1); }
+// Modes : (défaut) bulles incrustées + voix `say` (Mac) · --raw : ni texte, ni voix, ni zoom (texte natif tapé dans TikTok) ·
+// --voice : comme --raw mais avec la voix générée (edge-tts par défaut, tourne aussi sur le VPS) calée sur les bulles de la spec
+// = version « avec voix » d'une créa à deux versions (src/lib/variants.js). --out <fichier> : autre sortie que spec.out.
+const argvAll = process.argv.slice(2);
+const RAW = argvAll.includes("--raw"), VOICE = argvAll.includes("--voice");
+const outIdx = argvAll.indexOf("--out"), OUT = outIdx >= 0 ? argvAll[outIdx + 1] : null;
+const specPath = argvAll.find((x, i) => !x.startsWith("--") && argvAll[i - 1] !== "--out");
+if (!specPath) { console.error("Usage : node src/produce/pov.js spec.json [--raw | --voice] [--out fichier.mp4]"); process.exit(1); }
 const spec = JSON.parse(fs.readFileSync(specPath, "utf8"));
+if (OUT) spec.out = path.resolve(OUT);
 if (RAW) { spec.bubbles = []; spec.tts = false; spec.zoom = false; }
+if (VOICE) spec.zoom = false;
+const TTS = VOICE ? ttsFor(spec) : null;
 const base = path.dirname(path.resolve(specPath));
 const abs = (p) => (path.isAbsolute(p) ? p : path.resolve(base, p));
 const work = path.join(path.dirname(abs(spec.out)), "..", "work", path.basename(spec.out, ".mp4")); fs.mkdirSync(work, { recursive: true });
@@ -28,9 +37,16 @@ let cursor = 0; const bubbles = [];
 for (const [i, b] of (spec.bubbles || []).entries()) {
   let ttsDur = 0, wav = null;
   if (spec.tts !== false && b.tts !== false) {
-    const aiff = path.join(work, `tts_${i}.aiff`); wav = path.join(work, `tts_${i}.wav`);
-    run("say", ["-v", voice, "-r", String(spec.rate || 185), "-o", aiff, b.speak || b.text]);
-    run("ffmpeg", ["-y", "-loglevel", "error", "-i", aiff, "-ar", "44100", "-ac", "2", wav]);
+    wav = path.join(work, `tts_${i}.wav`);
+    if (TTS) {   // --voice : moteur de scripts/tts.py (edge par défaut), puis stéréo 44,1 kHz comme la voix `say`
+      const mono = path.join(work, `tts_${i}.mono.wav`);
+      run(PY, [path.join(INFRA_ROOT, "scripts", "tts.py"), mono, "--text", b.speak || b.text, "--engine", TTS.engine, "--voice", TTS.voice, ...(TTS.rate ? ["--rate", String(TTS.rate)] : [])]);
+      run("ffmpeg", ["-y", "-loglevel", "error", "-i", mono, "-ar", "44100", "-ac", "2", wav]);
+    } else {
+      const aiff = path.join(work, `tts_${i}.aiff`);
+      run("say", ["-v", voice, "-r", String(spec.rate || 185), "-o", aiff, b.speak || b.text]);
+      run("ffmpeg", ["-y", "-loglevel", "error", "-i", aiff, "-ar", "44100", "-ac", "2", wav]);
+    }
     ttsDur = dur(wav);
   }
   const start = b.at ?? cursor;
@@ -40,8 +56,8 @@ for (const [i, b] of (spec.bubbles || []).entries()) {
   cursor = end;
 }
 
-// 2. Rendu des bulles (PNG transparents)
-for (const [i, b] of bubbles.entries()) {
+// 2. Rendu des bulles (PNG transparents) — pas en --voice : le texte reste natif, seule la voix est ajoutée
+for (const [i, b] of (VOICE ? [] : bubbles).entries()) {
   b.png = path.join(work, `bubble_${i}.png`);
   run(PY, [path.join(INFRA_ROOT, "scripts", "render-bubble.py"), b.png, "--text", b.text, "--size", String(b.size || (i === 0 ? 62 : 54)), "--style", b.style || "bandeau"]);
   b.h = Number(run("ffprobe", ["-v", "error", "-select_streams", "v:0", "-show_entries", "stream=height", "-of", "csv=p=0", b.png]).trim());
@@ -69,7 +85,8 @@ segs.forEach((s, i) => {
 fc.push(`[photo]${segs.map((_, i) => `[seg${i}]`).join("")}concat=n=${segs.length + 1}:v=1:a=0[base]`);
 // bulles
 let last = "base";
-bubbles.forEach((b, i) => {
+const drawn = VOICE ? [] : bubbles;
+drawn.forEach((b, i) => {
   inputs.push("-i", b.png);
   // Positions : hook (photo) à 30 % ; card = zone vide en haut de la carte opinion ; verdict = zone blanche sous le pourcentage ; low ; center
   const POS = { top: 0.11, card: 0.17, verdict: 0.60, low: 0.68, hook: 0.30 };
@@ -81,7 +98,7 @@ bubbles.forEach((b, i) => {
 const wavs = bubbles.filter((b) => b.wav);
 let audioMap = [];
 if (wavs.length) {
-  wavs.forEach((b, i) => { inputs.push("-i", b.wav); const idx = 1 + NSRC + bubbles.length + i; fc.push(`[${idx}:a]adelay=${Math.round(b.start * 1000)}|${Math.round(b.start * 1000)}[a${i}]`); });
+  wavs.forEach((b, i) => { inputs.push("-i", b.wav); const idx = 1 + NSRC + drawn.length + i; fc.push(`[${idx}:a]adelay=${Math.round(b.start * 1000)}|${Math.round(b.start * 1000)}[a${i}]`); });
   fc.push(`${wavs.map((_, i) => `[a${i}]`).join("")}amix=inputs=${wavs.length}:normalize=0,volume=${spec.ttsVolume ?? 1.6}[aout]`);
   audioMap = ["-map", "[aout]", "-c:a", "aac", "-b:a", "160k"];
 } else audioMap = ["-an"];
@@ -89,5 +106,5 @@ const total = hookDur + segs.reduce((s, x) => s + (x.to - x.from) + (x.freezeSta
 const args = ["-y", "-loglevel", "error", ...inputs, "-filter_complex", fc.join(";"), "-map", `[${last}]`, ...audioMap, "-t", total.toFixed(2), "-r", String(FPS), "-c:v", "libx264", "-crf", "19", "-preset", "medium", "-pix_fmt", "yuv420p", "-movflags", "+faststart", abs(spec.out)];
 fs.writeFileSync(path.join(work, "ffmpeg-args.txt"), args.join(" "));
 run("ffmpeg", args);
-console.log(`→ ${abs(spec.out)} (${total.toFixed(1)} s)${RAW ? " [brut : sans texte, sans voix, sans zoom]" : ""}`);
+console.log(`→ ${abs(spec.out)} (${total.toFixed(1)} s)${RAW ? " [brut : sans texte, sans voix, sans zoom]" : VOICE ? ` [avec voix ${TTS.engine}/${TTS.voice}, texte natif]` : ""}`);
 console.log("bulles :", bubbles.map((b) => `${b.start.toFixed(1)}-${b.end.toFixed(1)} ${b.text.slice(0, 40)}`).join(" | "));

@@ -72,7 +72,7 @@ for (const slug of slugs) {
   }
   const outDir = path.join(CONTENT_ROOT, "08_ACCOUNTS", slug);
   fs.mkdirSync(outDir, { recursive: true });
-  writeMd(path.join(outDir, "STATS.md"), { name: `stats-${slug}`, description: `Stats publiques du compte ${acc.handle || slug} relevées chaque lundi — profil, médiane, 7 jours, top historique`, type: "stats", generated: true, ...fm }, body.join("\n"));
+  writeMd(path.join(outDir, "STATS.md"), { name: `stats-${slug}`, description: `Stats publiques du compte ${acc.handle || slug} relevées chaque matin à 07:00 — profil, médiane, 7 jours, top historique`, type: "stats", generated: true, ...fm }, body.join("\n"));
   digest.push({ slug, handle: acc.handle, fm, last7, top3: top.slice(0, 3), moving: moving.slice(0, 3), med });
 
   // Fiches EXP : post_url → métriques J+3 / J+7
@@ -93,7 +93,7 @@ for (const slug of slugs) {
 }
 
 // Digest
-const dl = [`# Relevé hebdo des comptes — ${date}\n`, `Généré par \`infra/src/accounts/report.js\`. Rétention 3 s, temps de visionnage et visites de profil ne sont pas publics : à relever à la main dans TikTok Studio pour les posts qui comptent.\n`, `| Compte | Handle | Abonnés | Δ abonnés | Médiane vues | Posts 7 j | Vues 7 j | Vues gagnées | Note |\n|---|---|---:|---:|---:|---:|---:|---:|---|`];
+const dl = [`# Relevé quotidien des comptes — ${date}\n`, `Généré par \`infra/src/accounts/report.js\`. Rétention 3 s, temps de visionnage et visites de profil ne sont pas publics : à relever à la main dans TikTok Studio pour les posts qui comptent.\n`, `| Compte | Handle | Abonnés | Δ abonnés | Médiane vues | Posts 7 j | Vues 7 j | Vues gagnées | Note |\n|---|---|---:|---:|---:|---:|---:|---:|---|`];
 for (const x of digest) dl.push(x.fm ? `| ${x.slug} | ${x.handle || "?"} | ${num(x.fm.followers)} | ${x.fm.followers_delta === null ? "—" : (x.fm.followers_delta >= 0 ? "+" : "") + x.fm.followers_delta} | ${num(x.fm.median_views)} | ${x.fm.posts_7d} | ${num(x.fm.views_7d)} | ${x.fm.views_gained_since_last === null ? "—" : "+" + num(x.fm.views_gained_since_last)} | ${x.fm.note || ""} |` : `| ${x.slug} | ${x.handle || "?"} | — | — | — | — | — | — | ${x.note} |`);
 dl.push("");
 for (const x of digest) {

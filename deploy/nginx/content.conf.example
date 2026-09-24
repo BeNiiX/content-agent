@@ -1,0 +1,25 @@
+# Tableau de bord content-agent derrière nginx (VPS partagé où nginx + certbot occupent déjà 80/443 : pas de Caddy).
+# Installation (root) :
+#   cp deploy/nginx/content.conf.example /etc/nginx/sites-available/content.<domaine>
+#   sed -i 's/__DOMAIN__/content.<domaine>/' /etc/nginx/sites-available/content.<domaine>
+#   ln -s /etc/nginx/sites-available/content.<domaine> /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx
+#   certbot --nginx -d content.<domaine>                            # après création de l'enregistrement DNS A → IP du VPS
+# Sans DNS : tunnel SSH depuis le Mac →  ssh -N -L 4747:127.0.0.1:4747 content@<vps>   puis http://127.0.0.1:4747
+server {
+    server_name __DOMAIN__;
+
+    # L'authentification est faite par l'application (formulaire de connexion + cookie, DASHBOARD_USER / DASHBOARD_PASSWORD
+    # dans infra/.env) : reconnue par les gestionnaires de mots de passe, contrairement à une basic auth nginx.
+    # Tableau de bord (node, 127.0.0.1:4747) — il sert aussi /media/ derrière la même session
+    location / {
+        proxy_pass http://127.0.0.1:4747;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 120s;
+    }
+
+    client_max_body_size 200m;   # dépôt de photos / rushs par le tableau de bord
+    # certbot ajoute listen 443 ssl + redirection 80 → 443
+}

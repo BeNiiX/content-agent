@@ -17,17 +17,17 @@ Identifiants (e-mail, mot de passe, numéro, 2FA) : `ACCOUNTS_CREDENTIALS.md`, i
 
 ## Registre
 
-<!-- Comment remplir : une ligne par compte. Slug = `{{APP_SLUG}}-<icp>` (kebab-case, c'est la clé de `infra/config/accounts.json` et le champ `account` des fiches EXP). Un connecteur Higgsfield par compte (`tiktok_connect` avec un `name` distinct, depuis l'appareil qui porte le compte). -->
+<!-- Comment remplir : une ligne par compte. Slug = `{{APP_SLUG}}-<icp>` (kebab-case, c'est la clé de `infra/config/accounts.json` et le champ `account` des fiches EXP). Une autorisation TikTok par compte chez le fournisseur d'envoi (`node src/publish/daily-send.js --connect-url <slug>`, lien à ouvrir depuis l'appareil qui porte le compte). -->
 
-| Slug | Handle | Appareil | Rôle en une ligne | Abonnés (date) | Connecteur Higgsfield | État |
+| Slug | Handle | Appareil | Rôle en une ligne | Abonnés (date) | Compte chez le fournisseur d'envoi | État |
 |---|---|---|---|---|---|---|
-| `{{ACCOUNT_SLUG}}` | {{HANDLE}} | | | null | `null` (name `tiktok-{{ACCOUNT_SLUG}}`) | à connecter |
+| `{{ACCOUNT_SLUG}}` | {{HANDLE}} | | | null | `null` (`<backend>_account_id`) | à relier |
 
 Abonnés relevés par `infra/src/accounts/pull.js` (données publiques), chaque lundi → `08_ACCOUNTS/<slug>/STATS.md` et `06_CALENDAR/stats/<date>.md`.
 
 ## Carte des appareils
 
-<!-- Comment remplir : quel téléphone porte quels comptes (3 comptes max par appareil dans le sélecteur TikTok). Le brouillon envoyé par l'agent arrive sur le compte qui a autorisé Higgsfield, quel que soit le compte ouvert dans l'app. -->
+<!-- Comment remplir : quel téléphone porte quels comptes (3 comptes max par appareil dans le sélecteur TikTok). Le brouillon envoyé par l'agent arrive sur le compte qui a donné l'autorisation TikTok, quel que soit le compte ouvert dans l'app. -->
 
 | Appareil | Comptes | Remarque |
 |---|---|---|
@@ -60,5 +60,5 @@ Abonnés relevés par `infra/src/accounts/pull.js` (données publiques), chaque 
 ---
 
 ## Publication et connexion
-Registre machine : `infra/config/accounts.json` (slug → handle, appareil, connector_id, flags `paused` / `production_paused`). La fiche EXP porte `account:` ; sans connecteur, le job de brouillon est refusé.
+Registre machine : `infra/config/accounts.json` (slug → handle, appareil, `<backend>_account_id`, flags `paused` / `production_paused`). La fiche EXP porte `account:` ; sans identifiant chez le fournisseur d'envoi, le job de brouillon est refusé.
 Procédure : `infra/src/publish/CONNEXION_TIKTOK.md`. Pipeline : `infra/src/publish/README.md`.

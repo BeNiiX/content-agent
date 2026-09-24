@@ -3,7 +3,7 @@
 // dernier rendu. Conçu pour tourner sur le VPS (timer systemd content-render-pending, toutes les heures) après que les
 // agents cloud ont poussé de nouvelles specs et que les médias sources (screen-records, rushs) ont été rsyncés.
 //
-// Usage : node src/produce/render-pending.js [--dry-run] [--account <slug>] [--format F01|F02|F03] [--limit N]
+// Usage : node src/produce/render-pending.js [--dry-run] [--account <slug>] [--format F01|F02|F03|F04] [--limit N]
 //                                            [--force] [--mtime] [--no-mark] [--quiet] [--json]
 //   --dry-run : liste ce qui serait rendu, ne lance rien, n'écrit ni état ni fiche
 //   --json    : n'écrit sur stdout qu'un résumé JSON (specs, renderable, blocked, adopted, skipped, rendered, failed, items…) — pour doctor.js et le tableau de bord
@@ -14,12 +14,17 @@
 //   --mtime   : en plus de l'empreinte, considère « à rendre » une spec plus récente que sa sortie (attention : git ne
 //               conserve pas les dates ; après un clone toutes les specs paraissent récentes)
 //   --no-mark : ne passe pas les fiches EXP « à monter » en « prêt » après un rendu réussi
+//   --only    : ne traite que cette spec (chemin relatif au projet) — lancé par le tableau de bord
 //
-// Détection du rendu (regarder les specs existantes de 08_ACCOUNTS/<slug>/specs/F01|F02|F03) :
+// Deux versions (spec `variants: ["brut", "voix"]`, F01 et F04, src/lib/variants.js) : `out` = version brute, et la version
+// avec voix générée est rendue à côté (<nom>.voix.mp4) ; l'humain choisit à la validation (champ `version` de la fiche).
+//
+// Détection du rendu (regarder les specs existantes de 08_ACCOUNTS/<slug>/specs/F01|F02|F03|F04) :
 //   FORMAT-01 (ou `screen` + `segments`)              → node src/produce/pov.js <spec> --raw   (sans TTS : `say` n'existe pas sous Linux)
 //   FORMAT-02 rendition carrousel (out = dossier)     → .venv/bin/python scripts/carousel.py <spec>
 //   FORMAT-02 rendition video (out = .mp4, `slides`)  → .venv/bin/python scripts/series-video.py <spec>
 //   FORMAT-03 (`mode` face | faceless)                → .venv/bin/python scripts/pie-video.py <spec>
+//   FORMAT-04 (`countdown` ou `rule`, vidéo)          → .venv/bin/python scripts/partner-quiz-video.py <spec>   (avant F02 : même `cover` + `slides`) ; avec voix (`tts` ≠ false) : Mac seulement, ignorée ailleurs
 //
 // Pourquoi une empreinte plutôt que la date : git ne conserve pas les mtimes, donc après un clone ou un pull toutes les
 // specs sont « plus récentes » que des sorties rsyncées. L'état (SHA-1 du contenu de chaque spec rendue) est dans
@@ -34,6 +39,7 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { CONTENT_ROOT, INFRA_ROOT, DATA } from "../lib/paths.js";
 import { args, readJson, writeJson, today } from "../lib/fs.js";
+import { wantsVoice, voicePath, ttsFor } from "../lib/variants.js";
 
 const a = args();
 const DRY = !!a["dry-run"];
@@ -79,7 +85,8 @@ function walkSpecs() {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         const p = path.join(dir, e.name);
         if (e.isDirectory()) { if (!e.name.startsWith(".") && !e.name.startsWith("_")) stack.push(p); continue; }
-        if (!e.name.endsWith(".json") || e.name.startsWith("_") || e.name.startsWith(".")) continue;
+        if (!e.name.endsWith(".json") || e.name.endsWith(".plan.json") || e.name.startsWith("_") || e.name.startsWith(".")) continue;   // *.plan.json = sidecar des temps (F04)
+        if (a.only && path.relative(CONTENT_ROOT, p) !== String(a.only).replace(/^\.\//, "")) continue;
         out.push({ slug, file: p });
       }
     }
@@ -98,14 +105,27 @@ function classify(item) {
   const out = abs(spec.out);
   const fmt = normFormat(spec.format);
   const isVideoOut = VIDEO_EXT.test(spec.out);
-  let kind, cmd, argv, assets = [], expectFiles = null;
+  let kind, cmd, argv, assets = [], expectFiles = null, voice = null;
 
   if (fmt === "F01" || (!fmt && spec.screen && Array.isArray(spec.segments))) {
     kind = "F01 pov (--raw)";
     cmd = process.execPath; argv = [path.join(INFRA_ROOT, "src", "produce", "pov.js"), item.file, "--raw"];
+    if (wantsVoice(spec)) voice = { cmd, argv: [path.join(INFRA_ROOT, "src", "produce", "pov.js"), item.file, "--voice", "--out", voicePath(out)] };
     if (spec.photo) assets.push(abs(spec.photo));
     if (spec.screen) assets.push(abs(spec.screen));
     for (const sg of spec.segments || []) if (sg.src) assets.push(abs(sg.src));
+  } else if (fmt === "F04" || (!fmt && Array.isArray(spec.slides) && (spec.countdown || spec.rule))) {
+    kind = "F04 test du partenaire";
+    // La piste audio (voix + tic-tac) fait partie du rendu et les F04 avec voix se rendent sur le Mac (choix humain du 21/09 : voix edge-tts Denise) → deploy/sync-media.sh
+    // Deux versions : `out` = sans voix (tic-tac seul), <nom>.voix.mp4 = avec voix
+    if (wantsVoice(spec)) {
+      cmd = PY; argv = [path.join(SCRIPTS, "partner-quiz-video.py"), item.file, "--no-tts"];
+      voice = { cmd, argv: [path.join(SCRIPTS, "partner-quiz-video.py"), item.file, "--out", voicePath(out)] };
+    } else {
+      if (spec.tts !== false && voiceProblem(spec)) return { ...item, spec, skip: `F04 avec voix : ${voiceProblem(spec)} — rendu sur le Mac puis deploy/sync-media.sh` };
+      cmd = PY; argv = [path.join(SCRIPTS, "partner-quiz-video.py"), item.file];
+    }
+    if (spec.cover?.photo) assets.push(abs(spec.cover.photo));
   } else if (fmt === "F02" || (Array.isArray(spec.slides) && spec.cover)) {
     const video = spec.rendition === "video" || (isVideoOut && Array.isArray(spec.slides));
     kind = video ? "F02 vidéo série" : "F02 carrousel";
@@ -121,7 +141,15 @@ function classify(item) {
     return { ...item, spec, skip: `format inconnu (${spec.format || "absent"}) : rien à faire` };
   }
   if (a.format && normFormat(a.format) !== (fmt || kind.slice(0, 3))) return { ...item, spec, skip: "hors --format" };
-  return { ...item, spec, hash: sha1(raw), out, outRel: rel(out), kind, cmd, argv, assets: [...new Set(assets)], expectFiles, isDir: !isVideoOut };
+  if (voice && voiceProblem(spec)) { log(`  · ${rel(item.file)} : version avec voix impossible ici (${voiceProblem(spec)}), seule la version brute est rendue`); voice = null; }
+  return { ...item, spec, hash: sha1(raw), out, outRel: rel(out), kind, cmd, argv, assets: [...new Set(assets)], expectFiles, isDir: !isVideoOut, voice, voiceOut: voice ? voicePath(out) : null };
+}
+// Moteur de voix utilisable sur cette machine ? (edge-tts dans le venv, `say` sur macOS) → null ou la raison
+function voiceProblem(spec) {
+  const t = ttsFor(spec);
+  if (t.engine === "say") return process.platform === "darwin" ? null : "`say` n'existe que sur macOS";
+  if (t.engine === "edge") return fs.existsSync(path.join(INFRA_ROOT, ".venv", "bin", "edge-tts")) ? null : "edge-tts absent (.venv/bin/pip install edge-tts)";
+  return null;
 }
 
 // ---- 3. État de la sortie ----
@@ -137,7 +165,8 @@ function outputStatus(c) {
     return { present: true, mtime, detail: `${jpgs.length} slides` };
   }
   if (!st.isFile() || st.size < 1024) return { present: false, reason: "fichier vide ou tronqué" };
-  return { present: true, mtime: st.mtimeMs, detail: `${(st.size / 1e6).toFixed(1)} Mo` };
+  if (c.voiceOut && (!fs.existsSync(c.voiceOut) || fs.statSync(c.voiceOut).size < 1024)) return { present: false, reason: "version avec voix absente" };
+  return { present: true, mtime: st.mtimeMs, detail: `${(st.size / 1e6).toFixed(1)} Mo${c.voiceOut ? " + version avec voix" : ""}` };
 }
 
 // ---- 4. Après rendu : fiche EXP « à monter » → « prêt » (media_file = sortie), ligne QUEUE si présente ----
@@ -155,7 +184,9 @@ function markReady(c) {
     if (!media || media !== target) continue;
     const statusLine = m[1].match(/^status:\s*"?(à monter|a monter|à rendre|a rendre)"?\s*(#.*)?$/m);
     if (!statusLine) continue;
-    const fm = m[1].replace(/^status:.*$/m, `status: prêt${statusLine[2] ? " " + statusLine[2] : ""}`).replace(/^updated:.*$/m, `updated: ${today()}`);
+    // Nouveau rendu = nouveau média : une validation ou un refus antérieur ne vaut plus, l'humain revoit la créa
+    const fm = m[1].replace(/^status:.*$/m, `status: prêt${statusLine[2] ? " " + statusLine[2] : ""}`).replace(/^updated:.*$/m, `updated: ${today()}`)
+      .replace(/^validation:.*$/m, "validation: null").replace(/^validated_at:.*$/m, "validated_at: null");
     fs.writeFileSync(file, `---\n${fm}\n---${m[2]}`);
     done.push(f.replace(/\.md$/, ""));
   }
@@ -221,7 +252,8 @@ if (!DRY) {
     const t0 = Date.now();
     log(`▶ ${c.kind} : ${rel(c.file)}`);
     fs.mkdirSync(path.dirname(c.out), { recursive: true });
-    const r = spawnSync(c.cmd, c.argv, { cwd: INFRA_ROOT, encoding: "utf8", maxBuffer: 1 << 26, timeout: RENDER_TIMEOUT_MS });
+    let r = spawnSync(c.cmd, c.argv, { cwd: INFRA_ROOT, encoding: "utf8", maxBuffer: 1 << 26, timeout: RENDER_TIMEOUT_MS });
+    if (r.status === 0 && c.voice) r = spawnSync(c.voice.cmd, c.voice.argv, { cwd: INFRA_ROOT, encoding: "utf8", maxBuffer: 1 << 26, timeout: RENDER_TIMEOUT_MS });
     const secs = ((Date.now() - t0) / 1000).toFixed(0);
     const st = r.status === 0 ? outputStatus(c) : { present: false, reason: "" };
     if (r.status === 0 && st.present) {

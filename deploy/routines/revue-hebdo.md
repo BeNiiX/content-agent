@@ -43,7 +43,7 @@ ls -t 06_CALENDAR/stats/ | head -2 ; git log -3 --format='%h %ad %s' --date=shor
 
 Si le digest le plus récent date de plus de 6 jours : le VPS n'a pas relevé (ou pas encore poussé). Fais quand même les
 étapes 3 à 5 avec les données existantes, et écris en tête du compte rendu : « relevé absent — vérifier
-`content-weekly-stats` sur le VPS (`journalctl -u content-weekly-stats`) ».
+`content-daily-stats` sur le VPS (`journalctl -u content-daily-stats`) ».
 
 ## Étape 1 — Contexte
 

@@ -1,0 +1,12 @@
+[Unit]
+Description=Content - releve quotidien des comptes 07:00 Europe/Paris
+
+[Timer]
+OnCalendar=*-*-* 07:00:00 Europe/Paris
+# Rattrapage si le VPS était éteint : un relevé en retard vaut mieux qu'aucun relevé.
+Persistent=true
+AccuracySec=1min
+Unit=content-daily-stats.service
+
+[Install]
+WantedBy=timers.target

@@ -12,7 +12,12 @@ sont partagés entre apps ; tout ce qui est propre à cette app vit dans `00_AGE
 ## Avant toute action
 
 1. Lis `00_AGENT/MISSION.md` (rôle, objectifs, principes, limites, **autonomie** : ce qui est `auto` et ce qui est `confirm`).
-2. Lis `01_BRAND/APP_CONTEXT.md` (faits produit) et `01_BRAND/ACCOUNTS.md` (un compte = un ICP, un appareil, un connecteur).
+2. Si `07_ASSETS/A_TRAITER.md` a des cases `- [ ]` (fichiers déposés depuis le tableau de bord) : range-les d'abord
+   (photos : `infra/scripts/photos-inbox.py` puis `--apply` ; vidéos de `07_ASSETS/_inbox/` : `screen-records/<thème>/` +
+   `SCREENS.md` + `opinions.json`, ou `rushes/`), puis coche la case en notant le chemin final après « → ».
+2. Lis `01_BRAND/APP_CONTEXT.md` (faits produit) et `01_BRAND/ACCOUNTS.md` (un compte = un ICP, un appareil, une autorisation TikTok).
+   Avant de produire pour un compte : lis `08_ACCOUNTS/<compte>/LEARNINGS.md` s'il existe (règles tirées des commentaires de
+   l'humain sur les créas, synthétisées chaque matin par la routine `retours-quotidien`) et applique-les.
 3. Ouvre `06_CALENDAR/QUEUE.md` et `04_EXPERIMENTS/LOG.md` pour connaître l'état courant (l'ordre de QUEUE.md est l'ordre d'envoi automatique).
 4. Choisis la SOP correspondant à la tâche dans `00_AGENT/SOP/`.
 5. Avant d'écrire un script, de tourner, de publier ou de faire un post-mortem : charge la skill `creation-contenu-viral` (`.claude/skills/creation-contenu-viral/SKILL.md`).
@@ -29,28 +34,30 @@ sont partagés entre apps ; tout ce qui est propre à cette app vit dans `00_AGE
 | `04_EXPERIMENTS/` | Chaque contenu publié = une expérience avec hypothèse et résultat | Agent | instance |
 | `05_CAMPAIGNS/` | Campagnes paid, règles budget, registre | Agent | instance |
 | `06_CALENDAR/` | File de publication par compte, relevés de stats | Agent | instance |
-| `07_ASSETS/` | Assets partagés : photos (par thème, boîte de dépôt `_inbox/`), screen-records, rushs, banque d'unités de contenu | Humain + agent | instance |
+| `07_ASSETS/` | Assets partagés : photos (par thème, boîte de dépôt `photos/_inbox/`), vidéos déposées (`_inbox/`), screen-records, rushs, banque d'unités de contenu ; **`A_TRAITER.md`** = dépôts du tableau de bord à ranger puis cocher | Humain + agent | instance |
 | `08_ACCOUNTS/<slug>/` | Par compte : specs, sorties prêtes à publier, textes natifs, stats | Agent | instance |
-| `infra/` | Code : veille yt-dlp, scoring, docs, production (Pillow / ffmpeg), brouillons TikTok (connecteur Higgsfield), stats, tableau de bord, envoi du soir | Agent | framework (`config/` = instance) |
+| `infra/` | Code : veille yt-dlp, scoring, docs, production (Pillow / ffmpeg), brouillons TikTok (fournisseur d'envoi `PUBLISH_BACKEND`), stats, tableau de bord, envoi du soir | Agent | framework (`config/` = instance) |
 | `deploy/` | VPS : installation, timers systemd, Caddy, synchro médias et git, prompts des routines cloud | Agent | framework |
 | `templates/` | Projet vierge : gabarits d'instance, `new-project.sh`, `make-template.sh` | Agent | framework |
 
 ## Où tourne quoi
 
 - **Mac (session interactive)** : tournage, photos (`07_ASSETS/photos/_inbox/`), travail éditorial, `git pull` avant / `git push` après, `deploy/sync-media.sh` pour envoyer les vidéos au VPS.
-- **VPS (runtime, `deploy/README.md`)** : rendu des specs en attente (`infra/src/produce/render-pending.js`), envoi du soir (1 brouillon TikTok par compte connecté, `infra/scripts/daily-drafts.sh`, notification ntfy), relevé hebdo des comptes, synchro git, serveur de médias et tableau de bord derrière Caddy.
+- **VPS (runtime, `deploy/README.md`)** : rendu des specs en attente (`infra/src/produce/render-pending.js`), envoi du soir (1 brouillon TikTok par compte connecté, `infra/scripts/daily-drafts.sh`, notification ntfy), relevé quotidien des comptes, synchro git, serveur de médias et tableau de bord derrière Caddy.
 - **Routines cloud (Claude Code, `deploy/routines/`)** : agents éditoriaux planifiés qui clonent le dépôt (veille, production de specs et fiches, revue hebdo) et poussent leurs commits ; ils n'ont ni les vidéos ni les secrets et ne publient rien.
 
 ## Règles de travail
 
 - **Un fichier = une entité** (un concept, une expérience, un compte, une campagne), avec frontmatter YAML.
 - **Un compte = un ICP.** Jamais le même fichier de post sur deux comptes ; un gagnant se reproduit, il ne se reposte pas.
+- **Pas de créa hors gabarit validé (24/09/2026).** Concept → format → **gabarit** (format × rendu × compte, fiche technique versionnée, validé sur 2 pilotes dans l'onglet Formats) → créa. On ne produit que pour un gabarit `validé`, en suivant sa fiche, avec `gabarit` + `gabarit_version` dans la fiche EXP ; les créas non validées d'un gabarit non validé sont **gelées** (les créas déjà validées restent valables). Tout est dans `03_LIBRARY/gabarits/README.md` ; boucle : routine `gabarits-quotidien`.
 - **Un format n'entre dans `03_LIBRARY/formats/` qu'une fois validé par l'humain.** Un nouveau format se rédige dans `03_LIBRARY/archive/` avec `status: proposé`.
 - **Ne jamais inventer une métrique ni un chiffre affiché.** Si une donnée manque, écris `null` et note comment l'obtenir. Les pourcentages affichés viennent de la banque d'unités de contenu (`07_ASSETS/*.json`, champ `pct_agree`), jamais d'une estimation.
 - **Lien vers la source.** Chaque concept cite les vidéos d'origine (`02_VEILLE/videos/`).
 - **Copier puis inventer.** Une adaptation fidèle d'abord, une variante originale ensuite.
 - **Toute publication est une expérience** : hypothèse avant, résultat après 72 h puis 7 j.
 - **Argent = confirmation humaine.** Lecture des rapports ads en autonomie ; toute modification de budget ou de statut de campagne passe par `05_CAMPAIGNS/BUDGET_RULES.md` ET une validation explicite, sauf règle `auto: true`.
+- **Validation humaine avant envoi.** L'envoi du soir ne prend que les créas `prêt` **et** `validation: validé` (onglet Validation du tableau de bord). Une créa refusée porte `validation: refusé` + `validation_note` : lire le motif, refaire la créa, puis remettre `validation: null`. Une créa **`validation: à retoucher`** est bonne : appliquer **seulement** les changements listés dans `validation_note` (un par ligne), écrire `retouche_faite`, remettre `validation: null` (et `status: à monter` si la spec a changé) — procédure dans `deploy/routines/retours-quotidien.md`, partie A. Toute créa **modifiée après validation** (re-rendu, texte, opinion) repasse à `validation: null` : l'humain la revoit. Une créa F01 / F04 peut avoir **deux versions** (spec `variants: ["brut", "voix"]` → `<nom>.voix.mp4` à côté de `out`) : une seule fiche, l'humain choisit (`version: brut | voix` ; `variant` reste la lettre A/B/C des tests de headline) et l'envoi prend celle-là. Les commentaires de l'humain vivent dans la section `## Retours de validation` des fiches (`- [ ]` = pas encore synthétisé) : ne les modifie pas, seule la routine `retours-quotidien` coche `[x]`.
 - **Publication = confirmation humaine** tant que `00_AGENT/MISSION.md` dit `publish: confirm`. L'**envoi en brouillon** TikTok est autonome (`draft_tiktok: auto`, `daily_drafts: auto`) : le média attend dans l'app, l'humain ajoute titre, textes, musique et poste.
 - **TikTok = comptes créateur, brouillons seulement.** Jamais l'API Business ni un compte Business, jamais de proxy / VPN (`01_BRAND/COMPTES_US.md` si présent).
 - **Secrets** : `infra/.env` et `01_BRAND/ACCOUNTS_CREDENTIALS.md` ne sont jamais versionnés ni recopiés.

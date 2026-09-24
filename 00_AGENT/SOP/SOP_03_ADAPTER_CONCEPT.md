@@ -22,7 +22,7 @@ updated: 2026-09-18
    - Script / dialogues ou voix off
    - Shot-list (plan, durée, texte à l'écran)
    - Matériel : téléphone, nb de personnes, lieu, app ouverte sur quel thème
-   - Caption FR + EN, 3-5 hashtags, son suggéré (`tiktok_music_trending` via Higgsfield si post direct)
+   - Caption FR + EN, 3-5 hashtags, son suggéré (choisi dans l'app au moment de publier)
    - Version(s) : FR / EN / muette
 4. Créer `A2 — variante` en appliquant UNE technique de `CREATIVE_FRAMEWORK.md` §6 (croisement, inversion, contrainte, série…).
 5. Si le concept est purement visuel ou texte (carrousel, texte plein écran, screen-record), l'agent

@@ -25,19 +25,20 @@
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/></symbol>
   <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
   <symbol id="i-terminal" viewBox="0 0 24 24"><path d="M5 7l5 5-5 5M12 17h7"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/></symbol>
 </svg>
 
 <header class="top">
-  <a class="brand" href="#comptes"><span class="mark"></span><span id="brand-name">…</span><span class="dim">Pilotage contenu</span></a>
+  <a class="brand" href="#validation"><span class="mark"></span><span id="brand-name">…</span><span class="dim">Validation contenu</span></a>
   <nav class="tabs" id="nav">
+    <a href="#validation" data-view="validation">Validation <span class="badge" id="nav-pending" hidden></span></a>
+    <a href="#formats" data-view="formats">Formats <span class="badge" id="nav-formats" hidden></span></a>
     <a href="#comptes" data-view="comptes">Comptes</a>
-    <a href="#file" data-view="file">File d'attente</a>
-    <a href="#soir" data-view="soir">Ce soir</a>
+    <a href="#agent" data-view="agent">Agent</a>
     <a href="#assets" data-view="assets">Assets</a>
-    <a href="#journal" data-view="journal">Journal</a>
   </nav>
   <div class="top-right">
-    <span id="sched-chip" class="chip chip-quiet" title="Envoi automatique des brouillons (planificateur : systemd sur le VPS, launchd sur un Mac)"></span>
+    <a href="#agent" id="sched-chip" class="chip chip-quiet" title="Heure de l'envoi automatique des brouillons (réglable dans l'onglet Agent)"></a>
     <button class="btn btn-icon" id="refresh" title="Actualiser (R)"><svg><use href="#i-refresh"/></svg></button>
   </div>
 </header>

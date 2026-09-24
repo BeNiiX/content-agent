@@ -70,7 +70,7 @@ fi
 # ---------------------------------------------------------------------------------------------------------------------
 say "5/9 Python venv + Pillow ($INFRA/.venv)"
 [ -x "$INFRA/.venv/bin/python" ] || as_user python3 -m venv "$INFRA/.venv"
-as_user "$INFRA/.venv/bin/pip" install -q --upgrade pip pillow >/dev/null
+as_user "$INFRA/.venv/bin/pip" install -q --upgrade pip pillow edge-tts >/dev/null   # edge-tts : version « avec voix » des créas (src/lib/variants.js)
 ok "Pillow $(as_user "$INFRA/.venv/bin/python" -c 'import PIL; print(PIL.__version__)')"
 if [ "$INSTALL_WHISPER" = 1 ]; then as_user "$INFRA/.venv/bin/pip" install -q openai-whisper >/dev/null && ok "openai-whisper installé (transcribe.js utilisera \`whisper\` via le PATH du venv)"; fi
 # Polices : le dépôt embarque infra/fonts/ (DM Sans, Montserrat) lues directement par Pillow → rien à installer.
@@ -79,7 +79,7 @@ if [ "$INSTALL_WHISPER" = 1 ]; then as_user "$INFRA/.venv/bin/pip" install -q op
 # ---------------------------------------------------------------------------------------------------------------------
 say "6/9 Dossiers de données, .env, identité git"
 as_user mkdir -p "$INFRA"/data/{raw/tiktok,raw/instagram,videos,media,tiktok/authors,instagram,ads,accounts,publish/jobs,publish/daily,dashboard/runs,render,git-sync,veille}
-if [ -f "$INFRA/.env" ]; then ok ".env présent (non modifié)"; else as_user cp "$INFRA/.env.example" "$INFRA/.env"; warn ".env créé depuis .env.example → à compléter (NTFY_TOPIC, DAILY_MODEL…)"; fi
+if [ -f "$INFRA/.env" ]; then ok ".env présent (non modifié)"; else as_user cp "$INFRA/.env.example" "$INFRA/.env"; warn ".env créé depuis .env.example → à compléter (NTFY_TOPIC, PUBLISH_BACKEND, POSTFORME_API_KEY…)"; fi
 chmod 600 "$INFRA/.env"
 if [ -n "${GIT_USER_NAME:-}" ] && [ -n "${GIT_USER_EMAIL:-}" ]; then
   as_user git config --global user.name "$GIT_USER_NAME"; as_user git config --global user.email "$GIT_USER_EMAIL"; ok "identité git : $GIT_USER_NAME <$GIT_USER_EMAIL>"
@@ -101,22 +101,20 @@ fi
 
 # ---------------------------------------------------------------------------------------------------------------------
 say "8/9 Unités systemd (content-*)"
-# Heures et fuseau : infra/config/project.json (timezone, daily_hour, weekly_stats.{weekday,hour}) s'il existe, sinon les valeurs des fichiers .timer
-# La veille hebdo (content-weekly-veille) tourne le même jour que le relevé, une heure avant (weekly_stats.hour - 1, minimum 0).
-PJ="$INFRA/config/project.json"; TZ_UNITS="Europe/Paris"; DAILY_H=18; WEEK_D=1; WEEK_H=8
+# Heures et fuseau : infra/config/project.json (timezone, daily_hour = envoi du soir, stats_hour = relevé quotidien, weekly_veille.{weekday,hour}) s'il existe, sinon les valeurs des fichiers .timer
+PJ="$INFRA/config/project.json"; TZ_UNITS="Europe/Paris"; DAILY_H=18; DAILY_M=0; STATS_H=7; WEEK_D=1; VEILLE_H=6
 if [ -f "$PJ" ] && command -v node >/dev/null; then
-  read -r TZ_UNITS DAILY_H WEEK_D WEEK_H < <(node -e 'const p=require(process.argv[1]);console.log(p.timezone||"Europe/Paris",p.daily_hour??18,p.weekly_stats?.weekday??1,p.weekly_stats?.hour??8)' "$PJ" 2>/dev/null) || true
-  : "${TZ_UNITS:=Europe/Paris}" "${DAILY_H:=18}" "${WEEK_D:=1}" "${WEEK_H:=8}"
+  read -r TZ_UNITS DAILY_H DAILY_M STATS_H WEEK_D VEILLE_H < <(node -e 'const p=require(process.argv[1]);const v=p.weekly_veille||p.weekly_stats||{};console.log(p.timezone||"Europe/Paris",p.daily_hour??18,p.daily_minute??0,p.stats_hour??7,v.weekday??1,v.hour??6)' "$PJ" 2>/dev/null) || true
+  : "${TZ_UNITS:=Europe/Paris}" "${DAILY_H:=18}" "${DAILY_M:=0}" "${STATS_H:=7}" "${WEEK_D:=1}" "${VEILLE_H:=6}"
 fi
 case "$WEEK_D" in 0|7) WEEK_DAY=Sun ;; 2) WEEK_DAY=Tue ;; 3) WEEK_DAY=Wed ;; 4) WEEK_DAY=Thu ;; 5) WEEK_DAY=Fri ;; 6) WEEK_DAY=Sat ;; *) WEEK_DAY=Mon ;; esac   # 1 = lundi (convention launchd / project.json)
-VEILLE_H=$(( WEEK_H > 0 ? WEEK_H - 1 : 0 ))
 for f in "$HERE"/systemd/content-*.service "$HERE"/systemd/content-*.timer; do
   # adaptation si APP_USER / APP_DIR ne sont pas ceux par défaut, puis heures / fuseau du projet (une règle d'heure par timer, pour ne pas
   # réécrire deux fois la même ligne quand deux timers se retrouvent à la même heure)
   case "$(basename "$f")" in
-    content-daily-drafts.timer)  HOUR_RULE="s#^OnCalendar=\*-\*-\* 18:00:00 Europe/Paris#OnCalendar=*-*-* $(printf '%02d' "$DAILY_H"):00:00 $TZ_UNITS#" ;;
-    content-weekly-stats.timer)  HOUR_RULE="s#^OnCalendar=Mon \*-\*-\* 08:00:00 Europe/Paris#OnCalendar=$WEEK_DAY *-*-* $(printf '%02d' "$WEEK_H"):00:00 $TZ_UNITS#" ;;
-    content-weekly-veille.timer) HOUR_RULE="s#^OnCalendar=Mon \*-\*-\* 07:00:00 Europe/Paris#OnCalendar=$WEEK_DAY *-*-* $(printf '%02d' "$VEILLE_H"):00:00 $TZ_UNITS#" ;;
+    content-daily-drafts.timer)  HOUR_RULE="s#^\$##" ;;   # toutes les 5 min : l'heure est lue par src/publish/due.js dans project.json
+    content-daily-stats.timer)   HOUR_RULE="s#^OnCalendar=\*-\*-\* 07:00:00 Europe/Paris#OnCalendar=*-*-* $(printf '%02d' "$STATS_H"):00:00 $TZ_UNITS#" ;;
+    content-weekly-veille.timer) HOUR_RULE="s#^OnCalendar=Mon \*-\*-\* 06:00:00 Europe/Paris#OnCalendar=$WEEK_DAY *-*-* $(printf '%02d' "$VEILLE_H"):00:00 $TZ_UNITS#" ;;
     content-auth-check.timer)    HOUR_RULE="s#^OnCalendar=\*-\*-\* 09:00:00 Europe/Paris#OnCalendar=*-*-* 09:00:00 $TZ_UNITS#" ;;
     *)                           HOUR_RULE="s#^OnCalendar=\(.*\) Europe/Paris\$#OnCalendar=\1 $TZ_UNITS#" ;;
   esac
@@ -124,11 +122,11 @@ for f in "$HERE"/systemd/content-*.service "$HERE"/systemd/content-*.timer; do
       -e "$HOUR_RULE" \
       -e "s#^Environment=TZ=Europe/Paris#Environment=TZ=$TZ_UNITS#" "$f" > "/etc/systemd/system/$(basename "$f")"
 done
-ok "envoi du soir $(printf '%02d' "$DAILY_H"):00 · veille $WEEK_DAY $(printf '%02d' "$VEILLE_H"):00 · relevé $WEEK_DAY $(printf '%02d' "$WEEK_H"):00 · fuseau $TZ_UNITS (source : ${PJ#$APP_DIR/}, ou défauts)"
+ok "envoi du soir $(printf '%02d' "$DAILY_H"):$(printf '%02d' "$DAILY_M") (garde due.js, modifiable depuis le tableau de bord) · relevé quotidien $(printf '%02d' "$STATS_H"):00 · veille $WEEK_DAY $(printf '%02d' "$VEILLE_H"):00 · fuseau $TZ_UNITS (source : ${PJ#$APP_DIR/}, ou défauts)"
 chmod +x "$HERE"/*.sh "$INFRA"/scripts/*.sh 2>/dev/null || true
 systemctl daemon-reload
 systemctl enable --now content-dashboard.service >/dev/null 2>&1 && ok "content-dashboard (127.0.0.1:4747) : $(systemctl is-active content-dashboard)" || warn "content-dashboard : journalctl -u content-dashboard"
-for t in content-daily-drafts content-weekly-veille content-weekly-stats content-render-pending content-git-sync content-auth-check; do
+for t in content-daily-drafts content-weekly-veille content-daily-stats content-render-pending content-git-sync content-auth-check; do
   systemctl enable --now "$t.timer" >/dev/null 2>&1 && ok "$t.timer activé" || warn "$t.timer : systemctl status $t.timer"
 done
 
@@ -167,8 +165,8 @@ fi
 say "Terminé"
 cat <<EOF
    Prochaines étapes (détail dans deploy/README.md) :
-   1. Session Claude (une fois, puis à chaque expiration) : sudo -iu $APP_USER claude auth login   → /mcp doit lister « claude.ai Higgsfield »
-   2. Compléter $INFRA/.env (NOTIFY_CHANNEL / NTFY_TOPIC, DAILY_MODEL…)
+   1. Session Claude (une fois, puis à chaque expiration) : sudo -iu $APP_USER claude auth login   (revues headless ; l'envoi du soir n'en a pas besoin)
+   2. Compléter $INFRA/.env (NOTIFY_CHANNEL / NTFY_TOPIC, PUBLISH_BACKEND, POSTFORME_API_KEY…)
    3. Depuis le Mac : deploy/sync-media.sh  (screen-records, rushs, MP4 des posts)
    4. Vérifier : sudo -iu $APP_USER bash -c 'cd $INFRA && node src/doctor.js && node src/produce/render-pending.js --dry-run && bash scripts/daily-drafts.sh --dry-run'
    5. systemctl list-timers 'content-*'   ·   journalctl -u content-daily-drafts -n 50

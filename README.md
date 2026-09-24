@@ -25,8 +25,8 @@ une **instance** de ce framework (voir `templates/`) ; ce dépôt-ci est l'insta
 3. **Adapter / produire** : specs JSON par compte (`08_ACCOUNTS/<slug>/specs/`) rendues en carrousels 4:5 ou vidéos
    9:16 (Pillow + ffmpeg), textes natifs et captions dans `POSTS.md` / `TEXTES.md`.
 4. **Brouillon** : tous les jours à 18:00, le VPS envoie le prochain contenu `prêt` de chaque compte dans les brouillons
-   TikTok via le connecteur Higgsfield (jamais l'API Business, jamais de publication directe) et notifie l'humain
-   (ntfy) avec les consignes : titre à taper, texte natif, bulles, son, stock restant.
+   TikTok par l'API créateur (fournisseur d'envoi choisi dans `PUBLISH_BACKEND` ; jamais l'API Business, jamais de
+   publication directe) et notifie l'humain (ntfy) avec les consignes : titre à taper, texte natif, bulles, son, stock restant.
 5. **Publier** : l'humain ouvre le brouillon dans l'app, ajoute titre / textes / musique, poste.
 6. **Mesurer** : chaque post = une fiche `04_EXPERIMENTS/EXP-nnn.md` ; relevé public des comptes chaque lundi
    (`08_ACCOUNTS/<slug>/STATS.md`, `06_CALENDAR/stats/`), revue hebdo.
@@ -97,7 +97,7 @@ npm run dashboard                        # tableau de bord local
 |---|---|---|
 | Favoris / likes / following TikTok | Export officiel « Télécharger tes données » (JSON) + extraction navigateur (`infra/src/tiktok/browser-extract.js`) | L'API TikTok n'expose pas ces listes. L'export prend 1 à 3 jours. |
 | Métadonnées vidéo et stats des comptes | `yt-dlp` + lecture des pages publiques (`infra/src/accounts/pull.js`) | Pas de rétention ni de temps de visionnage (TikTok Studio, à la main). Un compte d'une autre région peut être illisible d'ici. |
-| Brouillons TikTok | Connecteur Higgsfield MCP (`media_upload` → `tiktok_prepare_publish` → `tiktok_publish`, mode `UPLOAD_TO_DRAFT`) | Compte créateur, app Higgsfield auditée. Le champ Titre d'un carrousel n'est jamais rempli : l'humain le tape (`infra/src/publish/README.md`). 13 posts / 24 h par compte. |
+| Brouillons TikTok | Content Posting API côté créateur (Login Kit, mode brouillon) via un fournisseur tiers — `PUBLISH_BACKEND=postforme` (`infra/src/publish/backends/`) | Compte créateur, app développeur du fournisseur (auditée par TikTok). Le champ Titre d'un carrousel n'est jamais rempli : l'humain le tape ; une vidéo en boîte de réception n'accepte aucun texte (`infra/src/publish/README.md`). Livraison du brouillon en 5 à 20 min. |
 | Publication Instagram | Graph API (`infra/src/publish/instagram.js`) | Compte pro / créateur + Page Facebook + app Meta. Vidéo à une URL publique. |
 | Rapports & budgets TikTok Ads | Marketing API (`infra/src/ads/`) | App développeur TikTok avec accès Marketing API + token long. |
 | Notification quotidienne | ntfy (push, expéditeur ≠ l'humain) ; Telegram possible ; iMessage inutile (auto-envoi sans alerte) | Le sujet ntfy doit rester secret. |
